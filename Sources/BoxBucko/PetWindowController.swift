@@ -84,6 +84,7 @@ final class PetWindowController: NSObject {
         petView.onDragEnd = { [weak self] velocity in self?.handleDragEnd(velocity: velocity) }
         petView.onClick = { [weak self] in self?.handleClick() }
         petView.onDoubleClick = { [weak self] in
+            self?.animationController?.notifyInteraction()
             self?.animationController?.playJump()
             SoundEffects.play(.jump)
         }
@@ -118,6 +119,7 @@ final class PetWindowController: NSObject {
         scene.rootNode.addChildNode(newRig.root)
         rig = newRig
         animationController = AnimationController(rig: rig, windowController: self, prefs: prefs)
+        animationController.onZzz = { [weak self] in self?.say("z z z...", duration: 2.2) }
         if prefs.wanderEnabled {
             animationController.startWandering()
         }
@@ -162,6 +164,7 @@ final class PetWindowController: NSObject {
     // MARK: - Dragging
 
     private func handleDragStart() {
+        animationController?.notifyInteraction()
         animationController?.stopWandering()
         SoundEffects.play(.pickUp)
     }
@@ -236,6 +239,7 @@ final class PetWindowController: NSObject {
     // MARK: - Interaction
 
     private func handleClick() {
+        animationController?.notifyInteraction()
         animationController?.playWave()
         SoundEffects.play(.click)
         spawnSparkles()
@@ -245,6 +249,7 @@ final class PetWindowController: NSObject {
     }
 
     private func handleRightClick(_ event: NSEvent) {
+        animationController?.notifyInteraction()
         NotificationCenter.default.post(name: .boxBuckoRequestContextMenu, object: event)
     }
 

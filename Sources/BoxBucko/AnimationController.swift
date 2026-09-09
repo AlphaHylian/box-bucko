@@ -12,10 +12,18 @@ final class AnimationController {
 
     private var wanderTimer: Timer?
     private var idleBehaviorTimer: Timer?
+    private var sleepCheckTimer: Timer?
+    private var zzzTimer: Timer?
     private var isWalking = false
     private var isGesturing = false
     private var isSitting = false
+    private var isSleeping = false
     private var facingRight = true
+    private var lastInteraction = Date()
+
+    /// How long BoxBucko has to be left completely alone before it dozes off.
+    private let sleepThreshold: TimeInterval = 4 * 60
+    var onSleepStateChanged: ((Bool) -> Void)?
 
     init(rig: SkinModelBuilder.Rig, windowController: PetWindowController, prefs: Preferences) {
         self.rig = rig
@@ -24,7 +32,80 @@ final class AnimationController {
         startIdleBreathing()
         startHeadLook()
         scheduleRandomIdleBehaviors()
+        startSleepWatch()
     }
+
+    deinit {
+        wanderTimer?.invalidate()
+        idleBehaviorTimer?.invalidate()
+        sleepCheckTimer?.invalidate()
+        zzzTimer?.invalidate()
+    }
+
+    // MARK: - Sleep
+
+    /// Call whenever the user actively interacts with this pet (click, drag,
+    /// right-click) so it knows not to doze off, and wakes back up if it had.
+    func notifyInteraction() {
+        lastInteraction = Date()
+        if isSleeping {
+            wakeUp()
+        }
+    }
+
+    private func startSleepWatch() {
+        sleepCheckTimer?.invalidate()
+        sleepCheckTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let idleFor = Date().timeIntervalSince(self.lastInteraction)
+            if !self.isSleeping && idleFor >= self.sleepThreshold && !self.isWalking && !self.isGesturing && !self.isSitting {
+                self.fallAsleep()
+            }
+        }
+    }
+
+    private func fallAsleep() {
+        guard !isSleeping else { return }
+        isSleeping = true
+        stopWandering()
+        rig.body.removeAction(forKey: "breathe")
+        let lieDown = SCNAction.rotateTo(x: -.pi / 2, y: 0, z: 0, duration: 0.6, usesShortestUnitArc: true)
+        lieDown.timingMode = .easeInEaseOut
+        rig.root.runAction(lieDown)
+        let doze = SCNAction.repeatForever(.sequence([
+            .moveBy(x: 0, y: 0.2, z: 0, duration: 1.6),
+            .moveBy(x: 0, y: -0.2, z: 0, duration: 1.6),
+        ]))
+        rig.body.runAction(doze, forKey: "sleepBreathe")
+        onSleepStateChanged?(true)
+        scheduleZzz()
+    }
+
+    private func wakeUp() {
+        isSleeping = false
+        zzzTimer?.invalidate()
+        rig.body.removeAction(forKey: "sleepBreathe")
+        let standUp = SCNAction.rotateTo(x: 0, y: CGFloat(rig.root.eulerAngles.y), z: 0, duration: 0.4, usesShortestUnitArc: true)
+        standUp.timingMode = .easeInEaseOut
+        rig.root.runAction(standUp) { [weak self] in
+            self?.startIdleBreathing()
+        }
+        onSleepStateChanged?(false)
+        if prefs.wanderEnabled {
+            startWandering()
+        }
+    }
+
+    private func scheduleZzz() {
+        guard isSleeping else { return }
+        zzzTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
+            guard let self, self.isSleeping else { return }
+            self.onZzz?()
+            self.scheduleZzz()
+        }
+    }
+
+    var onZzz: (() -> Void)?
 
     // MARK: - Idle
 
@@ -61,7 +142,7 @@ final class AnimationController {
         idleBehaviorTimer?.invalidate()
         idleBehaviorTimer = Timer.scheduledTimer(withTimeInterval: Double.random(in: 12...30), repeats: false) { [weak self] _ in
             guard let self else { return }
-            if !self.isWalking && !self.isGesturing && self.prefs.spontaneousAnimationsEnabled {
+            if !self.isWalking && !self.isGesturing && !self.isSleeping && self.prefs.spontaneousAnimationsEnabled {
                 let roll = Int.random(in: 0..<4)
                 switch roll {
                 case 0: self.playWave()
