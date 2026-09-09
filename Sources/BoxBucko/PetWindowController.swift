@@ -19,6 +19,9 @@ final class PetWindowController: NSObject {
 
     private let prefs = Preferences.shared
     private var speechHideWorkItem: DispatchWorkItem?
+    private var keyLight: SCNLight!
+    private var fillLight: SCNLight!
+    private var appearanceObservation: NSKeyValueObservation?
 
     static let contentSize = NSSize(width: 220, height: 300)
 
@@ -102,17 +105,32 @@ final class PetWindowController: NSObject {
         let key = SCNNode()
         key.light = SCNLight()
         key.light!.type = .directional
-        key.light!.intensity = 900
         key.light!.color = NSColor.white
         key.eulerAngles = SCNVector3(-0.6, -0.5, 0)
         scene.rootNode.addChildNode(key)
+        keyLight = key.light!
 
         let fill = SCNNode()
         fill.light = SCNLight()
         fill.light!.type = .ambient
-        fill.light!.intensity = 500
         fill.light!.color = NSColor.white
         scene.rootNode.addChildNode(fill)
+        fillLight = fill.light!
+
+        applyLighting(for: NSApp.effectiveAppearance)
+        appearanceObservation = NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, change in
+            guard let self, let appearance = change.newValue else { return }
+            DispatchQueue.main.async { self.applyLighting(for: appearance) }
+        }
+    }
+
+    /// A slightly brighter key light in Dark Mode keeps the model readable
+    /// against dark desktop backgrounds/wallpapers without looking blown out
+    /// in Light Mode.
+    private func applyLighting(for appearance: NSAppearance) {
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        keyLight.intensity = isDark ? 1100 : 850
+        fillLight.intensity = isDark ? 650 : 450
     }
 
     func loadRig(texture: CGImage, slim: Bool) {
