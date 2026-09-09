@@ -43,6 +43,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        menu.addItem(makeItem("Spawn Another Bucko", #selector(AppController.spawnCompanion), app))
+        menu.addItem(makeItem("Remove Extra Buckos", #selector(AppController.removeAllCompanions), app))
+
+        menu.addItem(.separator())
+
         menu.addItem(animationsMenuItem(app: app))
         menu.addItem(sizeMenuItem(app: app))
 
@@ -52,6 +57,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(checkItem("Follow Mouse Cursor", #selector(AppController.toggleFollowCursor), app, isOn: app.prefs.followCursorEnabled))
         menu.addItem(checkItem("Speech Bubbles", #selector(AppController.toggleSpeechBubbles), app, isOn: app.prefs.speechBubblesEnabled))
         menu.addItem(checkItem("Random Idle Animations", #selector(AppController.toggleSpontaneous), app, isOn: app.prefs.spontaneousAnimationsEnabled))
+        menu.addItem(checkItem("Sound Effects", #selector(AppController.toggleSound), app, isOn: app.prefs.soundEnabled))
         menu.addItem(checkItem("Flip Texture (if skin looks wrong)", #selector(AppController.toggleFlipTexture), app, isOn: app.prefs.flipTextureV))
 
         let launchItem = checkItem("Launch at Login", #selector(AppController.toggleLaunchAtLogin), app, isOn: LaunchAtLogin.isEnabled)

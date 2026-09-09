@@ -8,9 +8,14 @@ import SceneKit
 final class AppController: NSObject {
     let prefs = Preferences.shared
     private(set) lazy var windowController = PetWindowController()
+    private var companions: [PetWindowController] = []
     private var statusBarController: StatusBarController!
     private var cursorFollowTimer: Timer?
     private var idleSpeechTimer: Timer?
+
+    /// The primary pet plus any spawned companions -- most behaviour (cursor
+    /// follow, idle chatter) applies uniformly across all of them.
+    private var allPets: [PetWindowController] { [windowController] + companions }
 
     func start() {
         NSApp.setActivationPolicy(.accessory) // no dock icon, no app switcher entry
@@ -46,13 +51,51 @@ final class AppController: NSObject {
         applySkin(url: url)
     }
 
+    private var currentSkinURL: URL?
+
     private func applySkin(url: URL) {
         do {
             let loaded = try SkinTextureLoader.load(url: url)
             windowController.loadRig(texture: loaded.texture, slim: loaded.isSlim)
+            currentSkinURL = url
         } catch {
             NSLog("BoxBucko: failed to load skin at \(url): \(error)")
         }
+    }
+
+    // MARK: - Companions
+
+    @objc func spawnCompanion() {
+        let companion = PetWindowController()
+        if let url = currentSkinURL, let loaded = try? SkinTextureLoader.load(url: url) {
+            companion.loadRig(texture: loaded.texture, slim: loaded.isSlim)
+        } else if let url = Bundle.module.url(forResource: "steve", withExtension: "png"),
+                  let loaded = try? SkinTextureLoader.load(url: url) {
+            companion.loadRig(texture: loaded.texture, slim: loaded.isSlim)
+        }
+        // Nudge it away from wherever the main pet currently is so they don't overlap.
+        let base = windowController.window.frame.origin
+        let offset = CGPoint(x: CGFloat.random(in: -240...240), y: 0)
+        let screen = companion.currentScreenFrame()
+        let target = NSPoint(
+            x: min(max(base.x + offset.x, screen.minX), screen.maxX - companion.window.frame.width),
+            y: screen.minY
+        )
+        companion.window.setFrameOrigin(target)
+        companion.show()
+        if prefs.wanderEnabled {
+            companion.animationController?.startWandering()
+        }
+        companions.append(companion)
+        windowController.say("hi, meet my friend!")
+    }
+
+    @objc func removeAllCompanions() {
+        for companion in companions {
+            companion.animationController?.stopWandering()
+            companion.hide()
+        }
+        companions.removeAll()
     }
 
     // MARK: - Menu actions
@@ -84,6 +127,7 @@ final class AppController: NSObject {
             let entry = try SkinLibrary.shared.importSkin(from: url)
             prefs.currentSkinID = entry.id
             applySkin(url: SkinLibrary.shared.url(for: entry))
+            SoundEffects.play(.newSkin)
             windowController.say("new fit! 😎")
         } catch {
             let alert = NSAlert()
@@ -103,6 +147,7 @@ final class AppController: NSObject {
         guard let id = sender.representedObject as? String, let entry = SkinLibrary.shared.entry(withID: id) else { return }
         prefs.currentSkinID = id
         applySkin(url: SkinLibrary.shared.url(for: entry))
+        SoundEffects.play(.newSkin)
         windowController.say("new fit! 😎")
     }
 
@@ -125,10 +170,12 @@ final class AppController: NSObject {
 
     @objc func toggleWander() {
         prefs.wanderEnabled.toggle()
-        if prefs.wanderEnabled {
-            windowController.animationController?.startWandering()
-        } else {
-            windowController.animationController?.stopWandering()
+        for pet in allPets {
+            if prefs.wanderEnabled {
+                pet.animationController?.startWandering()
+            } else {
+                pet.animationController?.stopWandering()
+            }
         }
     }
 
@@ -144,6 +191,7 @@ final class AppController: NSObject {
 
     @objc func toggleSpeechBubbles() { prefs.speechBubblesEnabled.toggle() }
     @objc func toggleSpontaneous() { prefs.spontaneousAnimationsEnabled.toggle() }
+    @objc func toggleSound() { prefs.soundEnabled.toggle() }
 
     @objc func toggleFlipTexture() {
         prefs.flipTextureV.toggle()
@@ -197,20 +245,22 @@ final class AppController: NSObject {
     }
 
     private func updateHeadTowardsCursor() {
-        guard let rig = windowController.rig else { return }
         let mouse = NSEvent.mouseLocation
-        let windowFrame = windowController.window.frame
-        let headWorldX = windowFrame.midX
-        let headWorldY = windowFrame.maxY - 40
-        let dx = mouse.x - headWorldX
-        let dy = mouse.y - headWorldY
-        let maxDistance: CGFloat = 500
-        let clampedDx = max(-maxDistance, min(maxDistance, dx))
-        let clampedDy = max(-maxDistance, min(maxDistance, dy))
-        let yaw = Float(max(-0.7, min(0.7, clampedDx / 220)))
-        let pitch = Float(max(-0.5, min(0.5, -clampedDy / 260)))
-        rig.head.eulerAngles.y = rig.head.eulerAngles.y * 0.7 + yaw * 0.3
-        rig.head.eulerAngles.x = rig.head.eulerAngles.x * 0.7 + pitch * 0.3
+        for pet in allPets {
+            guard let rig = pet.rig else { continue }
+            let windowFrame = pet.window.frame
+            let headWorldX = windowFrame.midX
+            let headWorldY = windowFrame.maxY - 40
+            let dx = mouse.x - headWorldX
+            let dy = mouse.y - headWorldY
+            let maxDistance: CGFloat = 500
+            let clampedDx = max(-maxDistance, min(maxDistance, dx))
+            let clampedDy = max(-maxDistance, min(maxDistance, dy))
+            let yaw = Float(max(-0.7, min(0.7, clampedDx / 220)))
+            let pitch = Float(max(-0.5, min(0.5, -clampedDy / 260)))
+            rig.head.eulerAngles.y = rig.head.eulerAngles.y * 0.7 + yaw * 0.3
+            rig.head.eulerAngles.x = rig.head.eulerAngles.x * 0.7 + pitch * 0.3
+        }
     }
 
     // MARK: - Idle speech
@@ -219,8 +269,8 @@ final class AppController: NSObject {
         idleSpeechTimer?.invalidate()
         idleSpeechTimer = Timer.scheduledTimer(withTimeInterval: Double.random(in: 20...50), repeats: false) { [weak self] _ in
             guard let self else { return }
-            if self.prefs.speechBubblesEnabled && self.windowController.isVisible {
-                self.windowController.say(SpeechBank.randomIdleThought())
+            if self.prefs.speechBubblesEnabled, let pet = self.allPets.filter({ $0.isVisible }).randomElement() {
+                pet.say(SpeechBank.randomIdleThought())
             }
             self.scheduleIdleSpeech()
         }

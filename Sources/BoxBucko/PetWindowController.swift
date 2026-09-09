@@ -83,7 +83,10 @@ final class PetWindowController: NSObject {
         petView.onDrag = { [weak self] delta in self?.handleDrag(delta: delta) }
         petView.onDragEnd = { [weak self] velocity in self?.handleDragEnd(velocity: velocity) }
         petView.onClick = { [weak self] in self?.handleClick() }
-        petView.onDoubleClick = { [weak self] in self?.animationController?.playJump() }
+        petView.onDoubleClick = { [weak self] in
+            self?.animationController?.playJump()
+            SoundEffects.play(.jump)
+        }
         petView.onRightClick = { [weak self] event in self?.handleRightClick(event) }
 
         setupLighting()
@@ -160,6 +163,7 @@ final class PetWindowController: NSObject {
 
     private func handleDragStart() {
         animationController?.stopWandering()
+        SoundEffects.play(.pickUp)
     }
 
     private func handleDrag(delta: CGSize) {
@@ -183,11 +187,36 @@ final class PetWindowController: NSObject {
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             window.animator().setFrameOrigin(target)
         } completionHandler: { [weak self] in
-            guard let self else { return }
-            self.prefs.lastWindowOrigin = self.window.frame.origin
-            if self.prefs.wanderEnabled {
-                self.animationController?.startWandering()
-            }
+            self?.settleAfterDrag()
+        }
+    }
+
+    /// Simulates a bit of gravity: if BoxBucko got dropped somewhere above the
+    /// bottom of the screen, it falls the rest of the way down and bounces.
+    private func settleAfterDrag() {
+        let screen = currentScreenFrame()
+        let floorY = screen.minY
+        guard window.frame.origin.y > floorY + 1 else {
+            finishSettling()
+            return
+        }
+        let fallDistance = window.frame.origin.y - floorY
+        let duration = TimeInterval(min(0.6, max(0.15, Double(fallDistance) / 900.0)))
+        NSAnimationContext.runAnimationContext { ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().setFrameOrigin(NSPoint(x: window.frame.origin.x, y: floorY))
+        } completionHandler: { [weak self] in
+            self?.finishSettling()
+        }
+    }
+
+    private func finishSettling() {
+        prefs.lastWindowOrigin = window.frame.origin
+        SoundEffects.play(.drop)
+        animationController?.playLandingSquash()
+        if prefs.wanderEnabled {
+            animationController?.startWandering()
         }
     }
 
@@ -208,6 +237,8 @@ final class PetWindowController: NSObject {
 
     private func handleClick() {
         animationController?.playWave()
+        SoundEffects.play(.click)
+        spawnSparkles()
         if prefs.speechBubblesEnabled {
             say(SpeechBank.randomGreeting())
         }
@@ -215,6 +246,51 @@ final class PetWindowController: NSObject {
 
     private func handleRightClick(_ event: NSEvent) {
         NotificationCenter.default.post(name: .boxBuckoRequestContextMenu, object: event)
+    }
+
+    // MARK: - Particles
+
+    private static let sparkleImage: NSImage = {
+        let size = NSSize(width: 16, height: 16)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        let gradient = NSGradient(colors: [
+            NSColor(white: 1, alpha: 1),
+            NSColor(white: 1, alpha: 0),
+        ])
+        gradient?.draw(in: NSRect(origin: .zero, size: size), relativeCenterPosition: .zero)
+        image.unlockFocus()
+        return image
+    }()
+
+    /// A short, cheerful particle burst near the pet's head, used on click.
+    func spawnSparkles() {
+        guard let rig else { return }
+        let system = SCNParticleSystem()
+        system.particleImage = Self.sparkleImage
+        system.birthRate = 0
+        system.emitterShape = SCNSphere(radius: 1)
+        system.spreadingAngle = 180
+        system.particleLifeSpan = 0.5
+        system.particleLifeSpanVariation = 0.15
+        system.particleSize = 0.35
+        system.particleSizeVariation = 0.15
+        system.particleVelocity = 10
+        system.particleVelocityVariation = 4
+        system.particleColor = NSColor.systemYellow
+        system.blendMode = .additive
+        system.loops = false
+        system.birthRate = 40
+        system.emissionDuration = 0.12
+
+        let emitter = SCNNode()
+        emitter.position = SCNVector3(rig.root.position.x, 30 * rig.root.scale.y, rig.root.position.z)
+        scene.rootNode.addChildNode(emitter)
+        emitter.addParticleSystem(system)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            emitter.removeFromParentNode()
+        }
     }
 
     // MARK: - Speech bubble

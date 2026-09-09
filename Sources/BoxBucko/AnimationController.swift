@@ -137,6 +137,17 @@ final class AnimationController {
         }
     }
 
+    /// A quick squash-and-stretch bounce, used when BoxBucko lands after being
+    /// dropped/falling. Purely cosmetic, doesn't touch `isGesturing` so it
+    /// can't get stuck blocking other animations if interrupted.
+    func playLandingSquash() {
+        let squash = SCNAction.scaleBy(x: 1.25, y: 0.7, z: 1.25, duration: 0.08)
+        squash.timingMode = .easeOut
+        let recover = SCNAction.scaleBy(x: 1 / 1.25, y: 1 / 0.7, z: 1 / 1.25, duration: 0.18)
+        recover.timingMode = .easeOut
+        rig.root.runAction(.sequence([squash, recover]))
+    }
+
     func toggleSit() {
         if isSitting {
             standUp()
