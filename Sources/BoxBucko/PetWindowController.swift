@@ -14,6 +14,8 @@ final class PetWindowController: NSObject {
 
     private(set) var rig: SkinModelBuilder.Rig!
     var animationController: AnimationController!
+    /// Forwarded from `PetView` when a PNG is dragged straight onto the pet.
+    var onSkinFileDropped: ((URL) -> Void)?
 
     private let prefs = Preferences.shared
     private var speechHideWorkItem: DispatchWorkItem?
@@ -90,6 +92,7 @@ final class PetWindowController: NSObject {
         }
         petView.onRightClick = { [weak self] event in self?.handleRightClick(event) }
         petView.onScroll = { [weak self] deltaY in self?.handleScroll(deltaY: deltaY) }
+        petView.onFileDropped = { [weak self] url in self?.onSkinFileDropped?(url) }
 
         setupLighting()
         positionInitialWindow()

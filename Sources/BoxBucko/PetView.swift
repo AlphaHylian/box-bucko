@@ -11,6 +11,8 @@ final class PetView: SCNView {
     var onRightClick: ((NSEvent) -> Void)?
     var onDoubleClick: (() -> Void)?
     var onScroll: ((CGFloat) -> Void)?
+    /// Fired when the user drags a file (expected to be a skin PNG) onto the pet.
+    var onFileDropped: ((URL) -> Void)?
 
     private var dragStartScreenPoint: NSPoint = .zero
     private var lastDragScreenPoint: NSPoint = .zero
@@ -19,6 +21,16 @@ final class PetView: SCNView {
     private var velocity: CGPoint = .zero
 
     override var acceptsFirstResponder: Bool { true }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        registerForDraggedTypes([.fileURL])
+    }
 
     override func mouseDown(with event: NSEvent) {
         didDrag = false
@@ -60,5 +72,24 @@ final class PetView: SCNView {
 
     override func scrollWheel(with event: NSEvent) {
         onScroll?(event.scrollingDeltaY)
+    }
+
+    // MARK: - Drag & drop (drop a skin PNG straight onto the pet)
+
+    private func fileURL(from sender: NSDraggingInfo) -> URL? {
+        guard let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] else {
+            return nil
+        }
+        return urls.first { $0.pathExtension.lowercased() == "png" }
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        fileURL(from: sender) != nil ? .copy : []
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let url = fileURL(from: sender) else { return false }
+        onFileDropped?(url)
+        return true
     }
 }

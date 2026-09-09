@@ -22,6 +22,7 @@ final class AppController: NSObject {
         NSApp.setActivationPolicy(.accessory) // no dock icon, no app switcher entry
 
         statusBarController = StatusBarController(appController: self)
+        windowController.onSkinFileDropped = { [weak self] url in self?.importAndApply(url: url) }
         loadInitialSkin()
         windowController.show()
 
@@ -97,6 +98,7 @@ final class AppController: NSObject {
 
     @objc func spawnCompanion() {
         let companion = PetWindowController()
+        companion.onSkinFileDropped = { [weak self] url in self?.importAndApply(url: url) }
         if let url = currentSkinURL, let loaded = try? SkinTextureLoader.load(url: url) {
             companion.loadRig(texture: loaded.texture, slim: loaded.isSlim)
         } else if let url = Bundle.module.url(forResource: "steve", withExtension: "png"),
