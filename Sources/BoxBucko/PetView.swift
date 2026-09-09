@@ -10,6 +10,7 @@ final class PetView: SCNView {
     var onClick: (() -> Void)?
     var onRightClick: ((NSEvent) -> Void)?
     var onDoubleClick: (() -> Void)?
+    var onScroll: ((CGFloat) -> Void)?
 
     private var dragStartScreenPoint: NSPoint = .zero
     private var lastDragScreenPoint: NSPoint = .zero
@@ -55,5 +56,9 @@ final class PetView: SCNView {
 
     override func rightMouseDown(with event: NSEvent) {
         onRightClick?(event)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        onScroll?(event.scrollingDeltaY)
     }
 }

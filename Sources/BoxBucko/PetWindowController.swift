@@ -89,6 +89,7 @@ final class PetWindowController: NSObject {
             SoundEffects.play(.jump)
         }
         petView.onRightClick = { [weak self] event in self?.handleRightClick(event) }
+        petView.onScroll = { [weak self] deltaY in self?.handleScroll(deltaY: deltaY) }
 
         setupLighting()
         positionInitialWindow()
@@ -126,9 +127,16 @@ final class PetWindowController: NSObject {
     }
 
     func applyScale(_ scale: CGFloat) {
-        prefs.scale = scale
-        let s = Float(scale) / 10.0
+        let clamped = min(max(scale, 1.5), 14)
+        prefs.scale = clamped
+        let s = Float(clamped) / 10.0
         rig?.root.scale = SCNVector3(s, s, s)
+    }
+
+    private func handleScroll(deltaY: CGFloat) {
+        // Scrolling up on the pet grows it, scrolling down shrinks it -- a
+        // quick way to resize without digging into the menu.
+        applyScale(prefs.scale + deltaY * 0.08)
     }
 
     private func positionInitialWindow() {

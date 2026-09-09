@@ -89,6 +89,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                 submenu.addItem(entryItem)
             }
             submenu.addItem(.separator())
+            let renameItem = NSMenuItem(title: "Rename Current Skin…", action: #selector(AppController.renameCurrentSkin), keyEquivalent: "")
+            renameItem.target = app
+            submenu.addItem(renameItem)
             let removeItem = NSMenuItem(title: "Remove Current Skin From Library", action: #selector(AppController.removeCurrentSkinFromLibrary), keyEquivalent: "")
             removeItem.target = app
             submenu.addItem(removeItem)

@@ -12,6 +12,7 @@ final class AppController: NSObject {
     private var statusBarController: StatusBarController!
     private var cursorFollowTimer: Timer?
     private var idleSpeechTimer: Timer?
+    private let batteryMonitor = BatteryMonitor()
 
     /// The primary pet plus any spawned companions -- most behaviour (cursor
     /// follow, idle chatter) applies uniformly across all of them.
@@ -33,6 +34,35 @@ final class AppController: NSObject {
             startCursorFollow()
         }
         scheduleIdleSpeech()
+        greetForTimeOfDay()
+        setUpBatteryCommentary()
+    }
+
+    private func greetForTimeOfDay() {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let greeting: String
+        switch hour {
+        case 5..<12: greeting = "good morning! ☀️"
+        case 12..<17: greeting = "afternoon!"
+        case 17..<22: greeting = "good evening"
+        default: greeting = "up late, huh?"
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            self?.windowController.say(greeting, duration: 3)
+        }
+    }
+
+    private func setUpBatteryCommentary() {
+        batteryMonitor.onLowBattery = { [weak self] in
+            self?.allPets.randomElement()?.say("battery's getting low...", duration: 3.2)
+        }
+        batteryMonitor.onStartedCharging = { [weak self] in
+            self?.allPets.randomElement()?.say("ooh, power! ⚡️", duration: 2.6)
+        }
+        batteryMonitor.onFullyCharged = { [weak self] in
+            self?.allPets.randomElement()?.say("full battery, let's go", duration: 2.6)
+        }
+        batteryMonitor.start()
     }
 
     private func loadInitialSkin() {
@@ -156,6 +186,26 @@ final class AppController: NSObject {
         SkinLibrary.shared.remove(entry)
         prefs.currentSkinID = nil
         loadBundledDefaultSkin()
+    }
+
+    @objc func renameCurrentSkin() {
+        guard let id = prefs.currentSkinID, let entry = SkinLibrary.shared.entry(withID: id) else { return }
+        let alert = NSAlert()
+        alert.messageText = "Rename Skin"
+        alert.informativeText = "Enter a new name for \"\(entry.name)\"."
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        field.stringValue = entry.name
+        alert.accessoryView = field
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.initialFirstResponder = field
+        if alert.runModal() == .alertFirstButtonReturn {
+            let newName = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !newName.isEmpty {
+                SkinLibrary.shared.rename(entry, to: newName)
+            }
+        }
     }
 
     @objc func playWave() { windowController.animationController?.playWave() }
