@@ -164,9 +164,13 @@ enum SkinTextureLoader {
             space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ), let base = ctx.data else { return nil }
-        // Flip so row 0 of the buffer == top row of the source image (normal reading order).
-        ctx.translateBy(x: 0, y: CGFloat(height))
-        ctx.scaleBy(x: 1, y: -1)
+        // Drawing a CGImage into a freshly-created bitmap context at its full
+        // bounds, with no transform applied, reproduces the image's pixels
+        // with row 0 of the resulting buffer == the image's own top row (the
+        // standard "extract raw RGBA bytes from a CGImage" idiom -- verified
+        // against a real decoded PNG via SkinTextureLoaderTests, since the
+        // opposite assumption -- that a flip was needed here -- turned out to
+        // be wrong).
         ctx.interpolationQuality = .none
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         let count = width * height * 4
@@ -215,11 +219,15 @@ enum SkinTextureLoader {
             space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { throw SkinLoadError.couldNotDecodeImage }
-        // A freshly-created CGContext already has a bottom-left origin, and
-        // `draw(_:in:)` draws the CGImage's row 0 at the *top* of the given
-        // rect in the context's own coordinate space. Net effect: the pixel
-        // buffer backing `ctx` ends up bottom-up relative to the image's
-        // normal (top-left origin) reading order -- exactly what we want.
+        // Unlike `pixelData` (which wants a normal, non-flipped copy), this
+        // function's whole job is to produce a texture whose *memory row
+        // order* is bottom-up -- so unlike every other draw in this file, we
+        // deliberately flip the CTM before drawing: this leaves the visual
+        // top row of `image` ending up in the *last* memory row of the
+        // resulting image's backing bytes, matching the GPU/OpenGL texture
+        // convention `SkinModelBuilder.uvTransform` assumes.
+        ctx.translateBy(x: 0, y: CGFloat(h))
+        ctx.scaleBy(x: 1, y: -1)
         ctx.interpolationQuality = .none
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
         guard let out = ctx.makeImage() else { throw SkinLoadError.couldNotDecodeImage }
