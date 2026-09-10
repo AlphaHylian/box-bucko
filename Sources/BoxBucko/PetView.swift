@@ -22,16 +22,6 @@ final class PetView: SCNView {
 
     override var acceptsFirstResponder: Bool { true }
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        registerForDraggedTypes([.fileURL])
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        registerForDraggedTypes([.fileURL])
-    }
-
     override func mouseDown(with event: NSEvent) {
         didDrag = false
         dragStartScreenPoint = NSEvent.mouseLocation
