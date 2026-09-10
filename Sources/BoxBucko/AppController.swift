@@ -193,6 +193,36 @@ final class AppController: NSObject {
         loadBundledDefaultSkin()
     }
 
+    @objc func exportCurrentSkin() {
+        let sourceURL: URL
+        if let currentSkinURL {
+            sourceURL = currentSkinURL
+        } else if let bundled = Bundle.module.url(forResource: "steve", withExtension: "png") {
+            sourceURL = bundled
+        } else {
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.nameFieldStringValue = (prefs.currentSkinID.flatMap { SkinLibrary.shared.entry(withID: $0)?.name } ?? "BoxBucko Skin") + ".png"
+        panel.title = "Save Skin As"
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        do {
+            if FileManager.default.fileExists(atPath: destination.path) {
+                try FileManager.default.removeItem(at: destination)
+            }
+            try FileManager.default.copyItem(at: sourceURL, to: destination)
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Couldn't save skin"
+            alert.informativeText = error.localizedDescription
+            alert.alertStyle = .warning
+            alert.runModal()
+        }
+    }
+
     @objc func renameCurrentSkin() {
         guard let id = prefs.currentSkinID, let entry = SkinLibrary.shared.entry(withID: id) else { return }
         let alert = NSAlert()
