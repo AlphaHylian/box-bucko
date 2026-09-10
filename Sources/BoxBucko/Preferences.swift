@@ -62,9 +62,10 @@ final class Preferences {
 
     /// Escape hatch (menu bar toggle) for the horizontal analogue of
     /// `flipTextureV`, in case SceneKit's per-face UV winding turns out to
-    /// need the opposite of what we assumed. Defaults to off.
+    /// need the opposite of what we assumed. Defaults to on, matching the
+    /// horizontal-mirror fix shipped in v0.1.5.
     var flipTextureH: Bool {
-        get { defaults.bool(forKey: Key.flipTextureH) }
+        get { defaults.object(forKey: Key.flipTextureH) == nil ? true : defaults.bool(forKey: Key.flipTextureH) }
         set { defaults.set(newValue, forKey: Key.flipTextureH) }
     }
 
