@@ -4,9 +4,14 @@ import ImageIO
 import AppKit
 
 struct LoadedSkin {
-    /// A 64x64 RGBA texture image, stored bottom-up (row 0 = visual bottom of the
-    /// original skin) so it matches the standard OpenGL/Metal texture V=0-at-bottom
-    /// convention that SceneKit's `contentsTransform` math assumes.
+    /// A 64x64 RGBA texture image, in its natural top-left-origin orientation
+    /// (row 0 = visual top of the skin, same as the source PNG). SceneKit's
+    /// texture-coordinate space has (0,0) at the bottom-left, but SceneKit
+    /// itself accounts for image storage order when uploading `CGImage`
+    /// contents -- so the UVs `SkinModelBuilder` generates (bottom-left-origin,
+    /// derived directly from this top-left-origin pixel data) are what need to
+    /// carry the flip, not the image bytes. See `SkinModelBuilder`'s explicit
+    /// per-vertex UV math.
     var texture: CGImage
     var isSlim: Bool
     var sourceURL: URL?
@@ -41,10 +46,9 @@ enum SkinTextureLoader {
 
     private static func build(from raw: CGImage, sourceURL: URL?) throws -> LoadedSkin {
         let normalized = try normalizeTo64x64(raw)
-        let flipped = try flipBottomUp(normalized)
         let slim = detectSlimArms(in: normalized)
         let faceIcon = makeFaceIcon(from: normalized)
-        return LoadedSkin(texture: flipped, isSlim: slim, sourceURL: sourceURL, faceIcon: faceIcon)
+        return LoadedSkin(texture: normalized, isSlim: slim, sourceURL: sourceURL, faceIcon: faceIcon)
     }
 
     /// Crops the head's front face (base skin tone + hat-layer overlay) out of
@@ -204,32 +208,6 @@ enum SkinTextureLoader {
         ) else { throw SkinLoadError.couldNotDecodeImage }
         ctx.interpolationQuality = .none
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        guard let out = ctx.makeImage() else { throw SkinLoadError.couldNotDecodeImage }
-        return out
-    }
-
-    /// Flips a top-left-origin image into a bottom-up buffer (row 0 in memory ==
-    /// visual bottom of the picture), matching standard GPU texture row order.
-    private static func flipBottomUp(_ image: CGImage) throws -> CGImage {
-        let w = image.width, h = image.height
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        guard let ctx = CGContext(
-            data: nil, width: w, height: h,
-            bitsPerComponent: 8, bytesPerRow: w * 4,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { throw SkinLoadError.couldNotDecodeImage }
-        // Unlike `pixelData` (which wants a normal, non-flipped copy), this
-        // function's whole job is to produce a texture whose *memory row
-        // order* is bottom-up -- so unlike every other draw in this file, we
-        // deliberately flip the CTM before drawing: this leaves the visual
-        // top row of `image` ending up in the *last* memory row of the
-        // resulting image's backing bytes, matching the GPU/OpenGL texture
-        // convention `SkinModelBuilder.uvTransform` assumes.
-        ctx.translateBy(x: 0, y: CGFloat(h))
-        ctx.scaleBy(x: 1, y: -1)
-        ctx.interpolationQuality = .none
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
         guard let out = ctx.makeImage() else { throw SkinLoadError.couldNotDecodeImage }
         return out
     }

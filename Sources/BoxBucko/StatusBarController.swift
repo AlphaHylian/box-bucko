@@ -68,8 +68,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(checkItem("Speech Bubbles", #selector(AppController.toggleSpeechBubbles), app, isOn: app.prefs.speechBubblesEnabled))
         menu.addItem(checkItem("Random Idle Animations", #selector(AppController.toggleSpontaneous), app, isOn: app.prefs.spontaneousAnimationsEnabled))
         menu.addItem(checkItem("Sound Effects", #selector(AppController.toggleSound), app, isOn: app.prefs.soundEnabled))
-        menu.addItem(checkItem("Flip Texture Vertically (if skin looks wrong)", #selector(AppController.toggleFlipTexture), app, isOn: app.prefs.flipTextureV))
-        menu.addItem(checkItem("Flip Texture Horizontally (if skin looks mirrored)", #selector(AppController.toggleFlipTextureHorizontal), app, isOn: app.prefs.flipTextureH))
 
         let launchItem = checkItem("Launch at Login", #selector(AppController.toggleLaunchAtLogin), app, isOn: LaunchAtLogin.isEnabled)
         launchItem.isEnabled = LaunchAtLogin.isSupported

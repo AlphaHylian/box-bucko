@@ -430,25 +430,6 @@ final class AppController: NSObject {
     @objc func toggleSpontaneous() { prefs.spontaneousAnimationsEnabled.toggle() }
     @objc func toggleSound() { prefs.soundEnabled.toggle() }
 
-    @objc func toggleFlipTexture() {
-        prefs.flipTextureV.toggle()
-        // Re-apply the current skin so the texture transform picks up the change.
-        if let id = prefs.currentSkinID, let entry = SkinLibrary.shared.entry(withID: id) {
-            applySkin(url: SkinLibrary.shared.url(for: entry))
-        } else {
-            loadBundledDefaultSkin()
-        }
-    }
-
-    @objc func toggleFlipTextureHorizontal() {
-        prefs.flipTextureH.toggle()
-        if let id = prefs.currentSkinID, let entry = SkinLibrary.shared.entry(withID: id) {
-            applySkin(url: SkinLibrary.shared.url(for: entry))
-        } else {
-            loadBundledDefaultSkin()
-        }
-    }
-
     @objc func toggleLaunchAtLogin() {
         LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
     }
