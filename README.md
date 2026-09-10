@@ -49,7 +49,11 @@ Named by whoever wrote this task: "it's a bucko on your screen made of boxes."
   `.app` — see below).
 - Runs on **all Spaces**, including over full-screen apps.
 
-## Building & running
+## Download (no build step)
+
+Grab the latest `BoxBucko.dmg` from [Releases](https://github.com/AlphaHylian/box-bucko/releases/latest), open it, and drag `BoxBucko.app` onto the `Applications` shortcut inside. Launch it from Applications (or Spotlight) like any other app — done.
+
+## Building & running from source
 
 This is a Swift Package (no Xcode project file needed, though you can open
 the folder directly in Xcode too — File → Open → select this directory).
@@ -84,6 +88,16 @@ make bundle
 This produces `dist/BoxBucko.app` — drag it into `/Applications` and double
 click it like any other app. `Info.plist` sets `LSUIElement`, so it never
 shows a Dock icon or appears in Cmd-Tab, matching the `swift run` experience.
+
+`make dmg` (also macOS-only) packages that `.app` into a drag-to-install
+`dist/BoxBucko.dmg`, identical to what ships on the [Releases](https://github.com/AlphaHylian/box-bucko/releases) page.
+
+### Publishing a release (maintainers)
+
+`.github/workflows/release.yml` builds `make dmg` on a macOS runner and
+publishes it as a GitHub Release automatically whenever a `v*` tag is
+pushed (`git tag v0.2.0 && git push origin v0.2.0`), or on demand via
+Actions → Release → **Run workflow**.
 
 ## Using it
 

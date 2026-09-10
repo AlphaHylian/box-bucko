@@ -3,7 +3,7 @@ BUNDLE_ID = com.boxbucko.app
 BUILD_DIR = .build/release
 APP_DIR = dist/$(APP_NAME).app
 
-.PHONY: build run bundle clean
+.PHONY: build run bundle icon dmg clean
 
 build:
 	swift build -c release
@@ -45,6 +45,21 @@ icon:
 	done
 	@iconutil -c icns /tmp/boxbucko.iconset -o "$(APP_DIR)/Contents/Resources/AppIcon.icns"
 	@rm -rf /tmp/boxbucko.iconset
+
+DMG_STAGING = dist/dmg-staging
+DMG_PATH = dist/$(APP_NAME).dmg
+
+# Builds a drag-to-install BoxBucko.dmg: double-click it, drag BoxBucko.app
+# onto the Applications shortcut inside, done. This is what release downloads
+# ship -- no Xcode/build step needed for end users.
+dmg: bundle
+	rm -rf "$(DMG_STAGING)" "$(DMG_PATH)"
+	mkdir -p "$(DMG_STAGING)"
+	cp -R "$(APP_DIR)" "$(DMG_STAGING)/"
+	ln -s /Applications "$(DMG_STAGING)/Applications"
+	hdiutil create -volname "$(APP_NAME)" -srcfolder "$(DMG_STAGING)" -ov -format UDZO "$(DMG_PATH)"
+	rm -rf "$(DMG_STAGING)"
+	@echo "Built $(DMG_PATH)"
 
 clean:
 	rm -rf .build dist
