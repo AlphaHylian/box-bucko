@@ -173,7 +173,15 @@ enum SkinModelBuilder {
     private static func boxGeometry(width: CGFloat, height: CGFloat, depth: CGFloat, uv: BoxFaceUV, texture: CGImage, isOverlay: Bool) -> SCNGeometry {
         let faces = faceCorners(width: width, height: height, depth: depth)
         // Order must match `faces` above and the materials array below.
-        let rects = [uv.front, uv.right, uv.back, uv.left, uv.top, uv.bottom]
+        //
+        // NOTE: `faces[1]` is the box's *geometric* +x side and `faces[3]` is
+        // -x -- but Mojang's skin format names its side regions by the
+        // character's own anatomical left/right, not by +x/-x. Since the
+        // character faces +z and (per `buildRig`) the right arm/leg sit at
+        // world -x, the anatomical-right texture (`uv.right`) belongs on the
+        // -x geometric face, and `uv.left` on +x -- the reverse of what a
+        // naive index-for-index pairing would give.
+        let rects = [uv.front, uv.left, uv.back, uv.right, uv.top, uv.bottom]
         let texSize = CGFloat(SkinTextureLoader.textureSize)
 
         var positions: [SCNVector3] = []
