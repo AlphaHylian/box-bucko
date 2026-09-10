@@ -3,7 +3,7 @@ BUNDLE_ID = com.boxbucko.app
 BUILD_DIR = .build/release
 APP_DIR = dist/$(APP_NAME).app
 
-.PHONY: build run bundle icon dmg clean
+.PHONY: build run bundle icon sign dmg clean
 
 build:
 	swift build -c release
@@ -27,6 +27,7 @@ bundle: build
 		cp -R "$$bundle_res" "$(APP_DIR)/Contents/Resources/"; \
 	fi
 	$(MAKE) icon
+	$(MAKE) sign
 	@echo "Built $(APP_DIR) -- drag it into /Applications, or just double-click it."
 
 # Builds AppIcon.icns from a pre-cropped 512x512 render of the default skin's
@@ -45,6 +46,18 @@ icon:
 	done
 	@iconutil -c icns /tmp/boxbucko.iconset -o "$(APP_DIR)/Contents/Resources/AppIcon.icns"
 	@rm -rf /tmp/boxbucko.iconset
+
+# Ad-hoc code-signs the bundle (no Apple Developer account/certificate
+# needed -- signing identity "-" just seals the bundle with a local,
+# unverifiable-by-Apple signature). Without *some* signature, Gatekeeper on
+# recent macOS refuses to open a downloaded, fully-unsigned app at all and
+# reports it as "damaged" rather than offering the usual "unidentified
+# developer" override. Best-effort: skipped quietly if codesign or the
+# bundle aren't present.
+sign:
+	@command -v codesign >/dev/null 2>&1 && [ -d "$(APP_DIR)" ] || { echo "Skipping codesign (codesign unavailable, or bundle missing)"; exit 0; }
+	codesign --force --deep --sign - "$(APP_DIR)"
+	@echo "Ad-hoc signed $(APP_DIR)"
 
 DMG_STAGING = dist/dmg-staging
 DMG_PATH = dist/$(APP_NAME).dmg

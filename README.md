@@ -53,6 +53,15 @@ Named by whoever wrote this task: "it's a bucko on your screen made of boxes."
 
 Grab the latest `BoxBucko.dmg` from [Releases](https://github.com/AlphaHylian/box-bucko/releases/latest), open it, and drag `BoxBucko.app` onto the `Applications` shortcut inside. Launch it from Applications (or Spotlight) like any other app — done.
 
+BoxBucko isn't notarized by Apple (that requires a paid Developer account), so macOS Gatekeeper may refuse to open it the first time:
+
+- **"BoxBucko is damaged and can't be opened"** — this is Gatekeeper's (confusingly-worded) reaction to a downloaded app it can't verify at all, not actual corruption. Releases are ad-hoc code-signed specifically to avoid this, but if you still hit it (e.g. building from source without `make sign`), open Terminal and run:
+  ```sh
+  xattr -cr /Applications/BoxBucko.app
+  ```
+  then launch it again.
+- **"BoxBucko can't be opened because it is from an unidentified developer"** — right-click (Control-click) the app in Applications → **Open** → confirm in the dialog. Only needed once.
+
 ## Building & running from source
 
 This is a Swift Package (no Xcode project file needed, though you can open
