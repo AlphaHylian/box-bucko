@@ -13,8 +13,6 @@ final class Preferences {
         static let followCursor = "boxbucko.followCursor"
         static let speechBubbles = "boxbucko.speechBubbles"
         static let spontaneousAnimations = "boxbucko.spontaneousAnimations"
-        static let flipTextureV = "boxbucko.flipTextureV"
-        static let flipTextureH = "boxbucko.flipTextureH"
         static let currentSkinID = "boxbucko.currentSkinID"
         static let windowX = "boxbucko.windowX"
         static let windowY = "boxbucko.windowY"
@@ -53,22 +51,6 @@ final class Preferences {
         set { defaults.set(newValue, forKey: Key.spontaneousAnimations) }
     }
 
-    /// Escape hatch in case SceneKit's texture V-orientation doesn't match
-    /// what `SkinModelBuilder` assumes on a given macOS/GPU combo.
-    var flipTextureV: Bool {
-        get { defaults.bool(forKey: Key.flipTextureV) }
-        set { defaults.set(newValue, forKey: Key.flipTextureV) }
-    }
-
-    /// Escape hatch (menu bar toggle) for the horizontal analogue of
-    /// `flipTextureV`, in case SceneKit's per-face UV winding turns out to
-    /// need the opposite of what we assumed. Defaults to on, matching the
-    /// horizontal-mirror fix shipped in v0.1.5.
-    var flipTextureH: Bool {
-        get { defaults.object(forKey: Key.flipTextureH) == nil ? true : defaults.bool(forKey: Key.flipTextureH) }
-        set { defaults.set(newValue, forKey: Key.flipTextureH) }
-    }
-
     var currentSkinID: String? {
         get { defaults.string(forKey: Key.currentSkinID) }
         set { defaults.set(newValue, forKey: Key.currentSkinID) }
@@ -84,7 +66,7 @@ final class Preferences {
     func resetToDefaults() {
         for key in [
             Key.scale, Key.wander, Key.followCursor, Key.speechBubbles,
-            Key.spontaneousAnimations, Key.flipTextureV, Key.flipTextureH, Key.windowX, Key.windowY,
+            Key.spontaneousAnimations, Key.windowX, Key.windowY,
             Key.soundEnabled,
         ] {
             defaults.removeObject(forKey: key)

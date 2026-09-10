@@ -130,11 +130,12 @@ get upgraded automatically). Classic (Steve, 4px arms) and Slim (Alex, 3px
 arms) are both auto-detected from the texture — you don't need to specify
 which.
 
-If a freshly-loaded skin ever looks visibly wrong (like the texture reads
-top-to-bottom flipped), there's a **"Flip Texture"** toggle in the menu as an
-escape hatch — SceneKit's exact texture-orientation behavior can vary subtly
-across GPU/driver combinations, and this flips the V axis without needing a
-rebuild.
+Every face of every body part is UV-mapped with hand-specified vertex
+coordinates (see `SkinModelBuilder`), rather than relying on `SCNBox`'s
+default per-face texture mapping — earlier releases tried several
+`SCNBox`-plus-transform workarounds for a texture-orientation bug, none of
+which reliably fixed it, since a uniform transform can't correct a per-face
+winding difference baked into `SCNBox` itself.
 
 ## How the model is built
 
@@ -145,9 +146,11 @@ Everything lives in `Sources/BoxBucko/`:
   layers just by varying origin/dimensions).
 - `SkinTextureLoader.swift` — loads a skin PNG, upgrades legacy 64x32 skins,
   and auto-detects Classic vs. Slim arms.
-- `SkinModelBuilder.swift` — builds the actual `SCNNode` rig: six
-  `SCNBox`es (one per body part) with per-face materials whose
-  `contentsTransform` slices out the right sub-rectangle of the skin texture.
+- `SkinModelBuilder.swift` — builds the actual `SCNNode` rig: six hand-built
+  boxes (one per body part), each with fully explicit per-vertex geometry and
+  UV coordinates (no `SCNBox` involved) so every face samples the right
+  sub-rectangle of the skin texture with no reliance on SceneKit's default
+  (undocumented) per-face UV winding.
 - `AnimationController.swift` — idle/walk/wander/gesture animations, built
   from `SCNAction`s.
 - `PetWindowController.swift` / `PetView.swift` — the borderless, transparent,
@@ -171,13 +174,16 @@ This was built without access to a real Mac/Xcode to compile against, so
 while everything has been carefully hand-checked for type correctness, a few
 things are worth an eye the first time you actually run it:
 
-- **Texture orientation.** The UV math in `SkinModelBuilder.uvTransform` is
-  derived from first principles about how SceneKit samples per-face texture
-  coordinates, which isn't something that could be verified without a real
-  Mac to run it on. If a skin renders with faces visibly flipped/wrong (the
-  whole skin appears mirrored, or upside down), use the **"Flip Texture
-  Horizontally"** / **"Flip Texture Vertically"** menu toggles — they
-  re-apply the current skin immediately, no rebuild needed.
+- **Texture orientation.** `SkinModelBuilder` now builds every body part as
+  fully explicit geometry — hand-placed vertices with their own per-vertex UV
+  coordinates — instead of texturing an `SCNBox` via a `contentsTransform`.
+  Earlier releases tried several `SCNBox`-based fixes (global mirrors,
+  per-face crops) for a "limbs render upside down" bug that none of them
+  reliably solved, since a uniform transform can't correct a per-face UV
+  winding difference that's baked into `SCNBox` itself; building the geometry
+  by hand removes that ambiguity rather than working around it. This still
+  hasn't been verified on a real Mac, so if a skin still renders with wrong
+  faces, that's the file to look at.
 - **Slim-arm auto-detection** is a pixel heuristic (checking a couple of
   pixels that are only ever opaque on the classic 4px arm template), not the
   real Mojang account metadata. It should be right for the vast majority of

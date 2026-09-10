@@ -4,6 +4,17 @@ import CoreGraphics
 /// Builds an animatable SceneKit rig (head/body/arms/legs) textured from a
 /// Minecraft skin. 1 scene unit == 1 skin-texture pixel, so the whole rig is
 /// ~32 units tall; callers scale the root node down to taste.
+///
+/// Each body part's box is built as fully explicit geometry (24 hand-placed
+/// vertices, one set of 4 per face, each carrying its own UV coordinates)
+/// rather than an `SCNBox` with a `contentsTransform`. `SCNBox`'s default
+/// per-face UV winding is undocumented and turned out not to match a uniform
+/// affine transform's ability to correct it (a `contentsTransform` can only
+/// scale/translate/rotate all four corners of a face together -- it can't
+/// independently fix a face whose default winding is different from its
+/// neighbors). Building the geometry by hand removes that guesswork
+/// entirely: every vertex's position and texture coordinate are both chosen
+/// by us, so there's nothing left for SceneKit to interpret ambiguously.
 enum SkinModelBuilder {
 
     struct Rig {
@@ -73,21 +84,22 @@ enum SkinModelBuilder {
         let container = SCNNode()
         container.name = spec.name
 
-        let baseBox = SCNBox(width: CGFloat(spec.width), height: CGFloat(spec.height), length: CGFloat(spec.depth), chamferRadius: 0)
-        baseBox.materials = materials(for: spec.base, texture: texture)
-        let baseNode = SCNNode(geometry: baseBox)
+        let baseGeometry = boxGeometry(
+            width: CGFloat(spec.width), height: CGFloat(spec.height), depth: CGFloat(spec.depth),
+            uv: spec.base, texture: texture, isOverlay: false
+        )
+        let baseNode = SCNNode(geometry: baseGeometry)
         container.addChildNode(baseNode)
 
         if let overlay = spec.overlay {
             let inflate = spec.overlayInflate
-            let overlayBox = SCNBox(
+            let overlayGeometry = boxGeometry(
                 width: CGFloat(spec.width) + inflate,
                 height: CGFloat(spec.height) + inflate,
-                length: CGFloat(spec.depth) + inflate,
-                chamferRadius: 0
+                depth: CGFloat(spec.depth) + inflate,
+                uv: overlay, texture: texture, isOverlay: true
             )
-            overlayBox.materials = materials(for: overlay, texture: texture, isOverlay: true)
-            let overlayNode = SCNNode(geometry: overlayBox)
+            let overlayNode = SCNNode(geometry: overlayGeometry)
             overlayNode.name = spec.name + "_overlay"
             container.addChildNode(overlayNode)
         }
@@ -95,16 +107,100 @@ enum SkinModelBuilder {
         return container
     }
 
-    private static func materials(for uv: BoxFaceUV, texture: CGImage, isOverlay: Bool = false) -> [SCNMaterial] {
-        // SCNBox material order: front, right, back, left, top, bottom.
+    /// One face of a hand-built box: 4 vertices in (bottom-left, bottom-right,
+    /// top-right, top-left) order as viewed from outside the box, i.e. the
+    /// same corner order a viewer would use to describe the *texture* rect
+    /// that face is painted with. Because every face uses this same corner
+    /// convention for both its 3D positions and its UVs, they can never
+    /// drift out of sync with each other the way relying on `SCNBox`'s own
+    /// (opaque) per-face vertex order could.
+    private struct FaceCorners {
+        var bl: SCNVector3
+        var br: SCNVector3
+        var tr: SCNVector3
+        var tl: SCNVector3
+        var normal: SCNVector3
+    }
+
+    private static func faceCorners(width w: CGFloat, height h: CGFloat, depth d: CGFloat) -> [FaceCorners] {
+        let hw = w / 2, hh = h / 2, hd = d / 2
         return [
-            material(rect: uv.front, texture: texture, isOverlay: isOverlay),
-            material(rect: uv.right, texture: texture, isOverlay: isOverlay),
-            material(rect: uv.back, texture: texture, isOverlay: isOverlay),
-            material(rect: uv.left, texture: texture, isOverlay: isOverlay),
-            material(rect: uv.top, texture: texture, isOverlay: isOverlay),
-            material(rect: uv.bottom, texture: texture, isOverlay: isOverlay),
+            // front (+z)
+            FaceCorners(bl: SCNVector3(-hw, -hh, hd), br: SCNVector3(hw, -hh, hd),
+                        tr: SCNVector3(hw, hh, hd), tl: SCNVector3(-hw, hh, hd),
+                        normal: SCNVector3(0, 0, 1)),
+            // right (+x)
+            FaceCorners(bl: SCNVector3(hw, -hh, hd), br: SCNVector3(hw, -hh, -hd),
+                        tr: SCNVector3(hw, hh, -hd), tl: SCNVector3(hw, hh, hd),
+                        normal: SCNVector3(1, 0, 0)),
+            // back (-z)
+            FaceCorners(bl: SCNVector3(hw, -hh, -hd), br: SCNVector3(-hw, -hh, -hd),
+                        tr: SCNVector3(-hw, hh, -hd), tl: SCNVector3(hw, hh, -hd),
+                        normal: SCNVector3(0, 0, -1)),
+            // left (-x)
+            FaceCorners(bl: SCNVector3(-hw, -hh, -hd), br: SCNVector3(-hw, -hh, hd),
+                        tr: SCNVector3(-hw, hh, hd), tl: SCNVector3(-hw, hh, -hd),
+                        normal: SCNVector3(-1, 0, 0)),
+            // top (+y)
+            FaceCorners(bl: SCNVector3(hw, hh, -hd), br: SCNVector3(-hw, hh, -hd),
+                        tr: SCNVector3(-hw, hh, hd), tl: SCNVector3(hw, hh, hd),
+                        normal: SCNVector3(0, 1, 0)),
+            // bottom (-y)
+            FaceCorners(bl: SCNVector3(-hw, -hh, -hd), br: SCNVector3(hw, -hh, -hd),
+                        tr: SCNVector3(hw, -hh, hd), tl: SCNVector3(-hw, -hh, hd),
+                        normal: SCNVector3(0, -1, 0)),
         ]
+    }
+
+    /// Same (bottom-left, bottom-right, top-right, top-left) UV corners for a
+    /// pixel rect from the *original*, top-left-origin skin texture. SceneKit
+    /// samples image contents with (0,0) at the bottom-left of the image (see
+    /// `LoadedSkin.texture`'s doc comment), so a pixel row `y` measured down
+    /// from the visual top becomes `v = 1 - y/texSize`.
+    private static func faceUVCorners(rect: PixelRect, texSize: CGFloat) -> (bl: CGPoint, br: CGPoint, tr: CGPoint, tl: CGPoint) {
+        let u0 = CGFloat(rect.x) / texSize
+        let u1 = CGFloat(rect.x + rect.w) / texSize
+        let vTop = 1 - CGFloat(rect.y) / texSize
+        let vBottom = 1 - CGFloat(rect.y + rect.h) / texSize
+        return (
+            bl: CGPoint(x: u0, y: vBottom),
+            br: CGPoint(x: u1, y: vBottom),
+            tr: CGPoint(x: u1, y: vTop),
+            tl: CGPoint(x: u0, y: vTop)
+        )
+    }
+
+    private static func boxGeometry(width: CGFloat, height: CGFloat, depth: CGFloat, uv: BoxFaceUV, texture: CGImage, isOverlay: Bool) -> SCNGeometry {
+        let faces = faceCorners(width: width, height: height, depth: depth)
+        // Order must match `faces` above and the materials array below.
+        let rects = [uv.front, uv.right, uv.back, uv.left, uv.top, uv.bottom]
+        let texSize = CGFloat(SkinTextureLoader.textureSize)
+
+        var positions: [SCNVector3] = []
+        var normals: [SCNVector3] = []
+        var texcoords: [CGPoint] = []
+        var elements: [SCNGeometryElement] = []
+
+        for (i, face) in faces.enumerated() {
+            let base = Int32(positions.count)
+            positions.append(contentsOf: [face.bl, face.br, face.tr, face.tl])
+            normals.append(contentsOf: [face.normal, face.normal, face.normal, face.normal])
+
+            let uvCorners = faceUVCorners(rect: rects[i], texSize: texSize)
+            texcoords.append(contentsOf: [uvCorners.bl, uvCorners.br, uvCorners.tr, uvCorners.tl])
+
+            let indices: [Int32] = [base, base + 1, base + 2, base, base + 2, base + 3]
+            let element = SCNGeometryElement(indices: indices, primitiveType: .triangles)
+            elements.append(element)
+        }
+
+        let vertexSource = SCNGeometrySource(vertices: positions)
+        let normalSource = SCNGeometrySource(normals: normals)
+        let texcoordSource = SCNGeometrySource(textureCoordinates: texcoords)
+
+        let geometry = SCNGeometry(sources: [vertexSource, normalSource, texcoordSource], elements: elements)
+        geometry.materials = rects.map { rect in material(rect: rect, texture: texture, isOverlay: isOverlay) }
+        return geometry
     }
 
     private static func material(rect: PixelRect, texture: CGImage, isOverlay: Bool) -> SCNMaterial {
@@ -115,7 +211,6 @@ enum SkinModelBuilder {
         m.diffuse.wrapT = .clamp
         m.diffuse.magnificationFilter = .nearest
         m.diffuse.minificationFilter = .nearest
-        m.diffuse.contentsTransform = uvTransform(for: rect)
         m.isDoubleSided = isOverlay
         if isOverlay {
             m.blendMode = .alpha
@@ -124,38 +219,5 @@ enum SkinModelBuilder {
             m.readsFromDepthBuffer = true
         }
         return m
-    }
-
-    /// Maps a pixel rect in the *original* (top-left origin) 64x64 skin image
-    /// onto the [0,1] UV square SceneKit uses for each SCNBox face, accounting
-    /// for the fact that the texture we hand SceneKit was pre-flipped to be
-    /// bottom-up (see `SkinTextureLoader.flipBottomUp`).
-    private static func uvTransform(for rect: PixelRect) -> SCNMatrix4 {
-        let texSize = CGFloat(SkinTextureLoader.textureSize)
-        var sx = CGFloat(rect.w) / texSize
-        let sy = CGFloat(rect.h) / texSize
-        var tx = CGFloat(rect.x) / texSize
-        if Preferences.shared.flipTextureH {
-            // Escape hatch (menu bar toggle) for the horizontal analogue of
-            // flipTextureV below: mirror U within each rect (keep its
-            // position in the texture atlas, reverse its horizontal
-            // sampling direction), in case SceneKit's per-face UV winding
-            // needs it relative to the source PNG for our camera setup.
-            sx = -sx
-            tx = tx + CGFloat(rect.w) / texSize
-        }
-        var ty = 1 - (CGFloat(rect.y) + CGFloat(rect.h)) / texSize
-        if Preferences.shared.flipTextureV {
-            // Escape hatch (menu bar toggle) in case a given macOS/GPU combo
-            // flips SceneKit's texture V axis relative to what we assumed.
-            ty = 1 - ty - sy
-        }
-        // SCNMatrix4's fields are CGFloat (confirmed against the real SDK via CI).
-        return SCNMatrix4(
-            m11: sx, m12: 0, m13: 0, m14: 0,
-            m21: 0, m22: sy, m23: 0, m24: 0,
-            m31: 0, m32: 0, m33: 1, m34: 0,
-            m41: tx, m42: ty, m43: 0, m44: 1
-        )
     }
 }
