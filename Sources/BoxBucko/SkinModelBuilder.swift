@@ -132,9 +132,17 @@ enum SkinModelBuilder {
     /// bottom-up (see `SkinTextureLoader.flipBottomUp`).
     private static func uvTransform(for rect: PixelRect) -> SCNMatrix4 {
         let texSize = CGFloat(SkinTextureLoader.textureSize)
-        let sx = CGFloat(rect.w) / texSize
+        // SCNBox's default per-face UV winding reads horizontally mirrored
+        // relative to the source PNG when the box is viewed from the "front"
+        // camera position we use (camera at +z looking toward -z): without
+        // this flip every face (front/back/left/right alike) comes out as a
+        // left-right mirror image of the skin, which is exactly the
+        // "every limb is flipped" symptom. Mirror U within each rect (keep
+        // its position in the texture atlas, just reverse its horizontal
+        // sampling direction) to compensate.
+        let sx = -(CGFloat(rect.w) / texSize)
         let sy = CGFloat(rect.h) / texSize
-        let tx = CGFloat(rect.x) / texSize
+        let tx = (CGFloat(rect.x) + CGFloat(rect.w)) / texSize
         var ty = 1 - (CGFloat(rect.y) + CGFloat(rect.h)) / texSize
         if Preferences.shared.flipTextureV {
             // Escape hatch (menu bar toggle) in case a given macOS/GPU combo
