@@ -172,9 +172,12 @@ while everything has been carefully hand-checked for type correctness, a few
 things are worth an eye the first time you actually run it:
 
 - **Texture orientation.** The UV math in `SkinModelBuilder.uvTransform` is
-  derived from first principles about how SceneKit samples texture V
-  coordinates. If a skin renders with faces visibly flipped/wrong, use the
-  **"Flip Texture"** menu toggle — no rebuild needed.
+  derived from first principles about how SceneKit samples per-face texture
+  coordinates, which isn't something that could be verified without a real
+  Mac to run it on. If a skin renders with faces visibly flipped/wrong (the
+  whole skin appears mirrored, or upside down), use the **"Flip Texture
+  Horizontally"** / **"Flip Texture Vertically"** menu toggles — they
+  re-apply the current skin immediately, no rebuild needed.
 - **Slim-arm auto-detection** is a pixel heuristic (checking a couple of
   pixels that are only ever opaque on the classic 4px arm template), not the
   real Mojang account metadata. It should be right for the vast majority of

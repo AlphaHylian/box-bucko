@@ -14,12 +14,15 @@ final class Preferences {
         static let speechBubbles = "boxbucko.speechBubbles"
         static let spontaneousAnimations = "boxbucko.spontaneousAnimations"
         static let flipTextureV = "boxbucko.flipTextureV"
+        static let flipTextureH = "boxbucko.flipTextureH"
         static let currentSkinID = "boxbucko.currentSkinID"
         static let windowX = "boxbucko.windowX"
         static let windowY = "boxbucko.windowY"
         static let launchAtLogin = "boxbucko.launchAtLogin"
         static let soundEnabled = "boxbucko.soundEnabled"
         static let hasShownWelcome = "boxbucko.hasShownWelcome"
+        static let pomodoroWorkMinutes = "boxbucko.pomodoroWorkMinutes"
+        static let pomodoroBreakMinutes = "boxbucko.pomodoroBreakMinutes"
     }
 
     var scale: CGFloat {
@@ -57,6 +60,15 @@ final class Preferences {
         set { defaults.set(newValue, forKey: Key.flipTextureV) }
     }
 
+    /// Escape hatch (menu bar toggle) for the horizontal analogue of
+    /// `flipTextureV`, in case SceneKit's per-face UV winding turns out to
+    /// need the opposite of what we assumed. Defaults to on, matching the
+    /// horizontal-mirror fix shipped in v0.1.5.
+    var flipTextureH: Bool {
+        get { defaults.object(forKey: Key.flipTextureH) == nil ? true : defaults.bool(forKey: Key.flipTextureH) }
+        set { defaults.set(newValue, forKey: Key.flipTextureH) }
+    }
+
     var currentSkinID: String? {
         get { defaults.string(forKey: Key.currentSkinID) }
         set { defaults.set(newValue, forKey: Key.currentSkinID) }
@@ -72,7 +84,7 @@ final class Preferences {
     func resetToDefaults() {
         for key in [
             Key.scale, Key.wander, Key.followCursor, Key.speechBubbles,
-            Key.spontaneousAnimations, Key.flipTextureV, Key.windowX, Key.windowY,
+            Key.spontaneousAnimations, Key.flipTextureV, Key.flipTextureH, Key.windowX, Key.windowY,
             Key.soundEnabled,
         ] {
             defaults.removeObject(forKey: key)
@@ -82,6 +94,22 @@ final class Preferences {
     var hasShownWelcome: Bool {
         get { defaults.bool(forKey: Key.hasShownWelcome) }
         set { defaults.set(newValue, forKey: Key.hasShownWelcome) }
+    }
+
+    var pomodoroWorkMinutes: Int {
+        get {
+            let v = defaults.integer(forKey: Key.pomodoroWorkMinutes)
+            return v == 0 ? 25 : v
+        }
+        set { defaults.set(newValue, forKey: Key.pomodoroWorkMinutes) }
+    }
+
+    var pomodoroBreakMinutes: Int {
+        get {
+            let v = defaults.integer(forKey: Key.pomodoroBreakMinutes)
+            return v == 0 ? 5 : v
+        }
+        set { defaults.set(newValue, forKey: Key.pomodoroBreakMinutes) }
     }
 
     var lastWindowOrigin: CGPoint? {

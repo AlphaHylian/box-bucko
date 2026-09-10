@@ -58,12 +58,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        menu.addItem(pomodoroMenuItem(app: app))
+        menu.addItem(remindersMenuItem(app: app))
+
+        menu.addItem(.separator())
+
         menu.addItem(checkItem("Wander Around Screen", #selector(AppController.toggleWander), app, isOn: app.prefs.wanderEnabled))
         menu.addItem(checkItem("Follow Mouse Cursor", #selector(AppController.toggleFollowCursor), app, isOn: app.prefs.followCursorEnabled))
         menu.addItem(checkItem("Speech Bubbles", #selector(AppController.toggleSpeechBubbles), app, isOn: app.prefs.speechBubblesEnabled))
         menu.addItem(checkItem("Random Idle Animations", #selector(AppController.toggleSpontaneous), app, isOn: app.prefs.spontaneousAnimationsEnabled))
         menu.addItem(checkItem("Sound Effects", #selector(AppController.toggleSound), app, isOn: app.prefs.soundEnabled))
-        menu.addItem(checkItem("Flip Texture (if skin looks wrong)", #selector(AppController.toggleFlipTexture), app, isOn: app.prefs.flipTextureV))
+        menu.addItem(checkItem("Flip Texture Vertically (if skin looks wrong)", #selector(AppController.toggleFlipTexture), app, isOn: app.prefs.flipTextureV))
+        menu.addItem(checkItem("Flip Texture Horizontally (if skin looks mirrored)", #selector(AppController.toggleFlipTextureHorizontal), app, isOn: app.prefs.flipTextureH))
 
         let launchItem = checkItem("Launch at Login", #selector(AppController.toggleLaunchAtLogin), app, isOn: LaunchAtLogin.isEnabled)
         launchItem.isEnabled = LaunchAtLogin.isSupported
@@ -77,6 +83,71 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(makeItem("About BoxBucko", #selector(AppController.showAbout), app))
         menu.addItem(makeItem("Quit BoxBucko", #selector(AppController.quit), app, keyEquivalent: "q"))
+    }
+
+    /// Shows a live countdown next to the menu bar icon while a Pomodoro
+    /// timer is running (e.g. "🍅 24:59"); pass nil to clear it.
+    func updateTimerLabel(_ text: String?) {
+        statusItem.button?.title = text.map { " " + $0 } ?? ""
+    }
+
+    private func pomodoroMenuItem(app: AppController) -> NSMenuItem {
+        let item = NSMenuItem(title: "Pomodoro Timer", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        let pomodoro = app.pomodoro
+
+        if pomodoro.isRunning {
+            let phaseText: String
+            switch pomodoro.phase {
+            case .idle: phaseText = ""
+            case .work: phaseText = "Working"
+            case .shortBreak: phaseText = "Short Break"
+            case .longBreak: phaseText = "Long Break"
+            }
+            let status = NSMenuItem(title: "\(phaseText) — \(pomodoro.formattedRemaining) remaining", action: nil, keyEquivalent: "")
+            status.isEnabled = false
+            submenu.addItem(status)
+            submenu.addItem(.separator())
+            submenu.addItem(makeItem(pomodoro.isPaused ? "Resume" : "Pause", #selector(AppController.togglePausePomodoro), app))
+            submenu.addItem(makeItem("Skip to Next Phase", #selector(AppController.skipPomodoroPhase), app))
+            submenu.addItem(makeItem("Stop", #selector(AppController.stopPomodoro), app))
+        } else {
+            submenu.addItem(makeItem("Start Pomodoro (\(pomodoro.workMinutes)/\(pomodoro.breakMinutes))", #selector(AppController.startPomodoro), app))
+            submenu.addItem(.separator())
+            let presets: [(String, Int, Int)] = [("Classic (25 work / 5 break)", 25, 5), ("Long Focus (50 work / 10 break)", 50, 10), ("Quick (15 work / 3 break)", 15, 3)]
+            for (label, work, brk) in presets {
+                let presetItem = NSMenuItem(title: label, action: #selector(AppController.setPomodoroDurations(_:)), keyEquivalent: "")
+                presetItem.target = app
+                presetItem.representedObject = [work, brk]
+                presetItem.state = (pomodoro.workMinutes == work && pomodoro.breakMinutes == brk) ? .on : .off
+                submenu.addItem(presetItem)
+            }
+        }
+        item.submenu = submenu
+        return item
+    }
+
+    private func remindersMenuItem(app: AppController) -> NSMenuItem {
+        let item = NSMenuItem(title: "Reminders", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.addItem(makeItem("Remind Me…", #selector(AppController.addReminder), app))
+        let pending = app.reminders.pending
+        if !pending.isEmpty {
+            submenu.addItem(.separator())
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            for reminder in pending {
+                let cancelItem = NSMenuItem(
+                    title: "\(formatter.string(from: reminder.fireDate)): \(reminder.message)  (click to cancel)",
+                    action: #selector(AppController.cancelReminder(_:)), keyEquivalent: ""
+                )
+                cancelItem.target = app
+                cancelItem.representedObject = reminder
+                submenu.addItem(cancelItem)
+            }
+        }
+        item.submenu = submenu
+        return item
     }
 
     /// Swaps the menu bar icon for a little 1:1 render of the current skin's
