@@ -7,7 +7,7 @@ Minecraft skin PNG and BoxBucko renders it as a real, blocky 3D model that
 sits on your desktop — draggable, animated, and always on top. No app
 windows, no Dock icon: just the menu bar icon and your little guy.
 
-Named by whoever wrote this task: "it's a bucko on your screen made of boxes."
+Named by AlphaHylian who wrote this task: "it's a bucko on your screen made of boxes."
 
 ## Features
 
