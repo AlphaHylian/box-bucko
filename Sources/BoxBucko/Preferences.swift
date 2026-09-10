@@ -19,6 +19,7 @@ final class Preferences {
         static let windowY = "boxbucko.windowY"
         static let launchAtLogin = "boxbucko.launchAtLogin"
         static let soundEnabled = "boxbucko.soundEnabled"
+        static let hasShownWelcome = "boxbucko.hasShownWelcome"
     }
 
     var scale: CGFloat {
@@ -76,6 +77,11 @@ final class Preferences {
         ] {
             defaults.removeObject(forKey: key)
         }
+    }
+
+    var hasShownWelcome: Bool {
+        get { defaults.bool(forKey: Key.hasShownWelcome) }
+        set { defaults.set(newValue, forKey: Key.hasShownWelcome) }
     }
 
     var lastWindowOrigin: CGPoint? {

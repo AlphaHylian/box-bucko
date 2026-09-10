@@ -37,6 +37,23 @@ final class AppController: NSObject {
         scheduleIdleSpeech()
         greetForTimeOfDay()
         setUpBatteryCommentary()
+        showWelcomeIfNeeded()
+    }
+
+    /// BoxBucko has no Dock icon and no windows by design, so a fresh launch
+    /// can otherwise look like "nothing happened." Point first-time users at
+    /// the menu bar once, then never again.
+    private func showWelcomeIfNeeded() {
+        guard !prefs.hasShownWelcome else { return }
+        prefs.hasShownWelcome = true
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "BoxBucko is running!"
+            alert.informativeText = "Look for the little face icon in your menu bar (top right, near the clock) — click it for options. Your pet should already be on screen too; drag it anywhere you like."
+            alert.alertStyle = .informational
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
     }
 
     private func greetForTimeOfDay() {
@@ -75,11 +92,26 @@ final class AppController: NSObject {
     }
 
     private func loadBundledDefaultSkin() {
-        guard let url = Bundle.module.url(forResource: "steve", withExtension: "png") else {
+        guard let url = Self.defaultSkinURL() else {
             NSLog("BoxBucko: missing bundled default skin")
             return
         }
         applySkin(url: url)
+    }
+
+    /// Locates the bundled default skin PNG without ever touching
+    /// `Bundle.module` unless it's actually needed: SwiftPM's generated
+    /// `Bundle.module` accessor calls `fatalError()` if it can't find its own
+    /// resource bundle, which would silently crash the whole app at launch --
+    /// exactly the "nothing happens when I open it" failure mode. `make
+    /// bundle` always copies `steve.png` as a flat resource specifically so
+    /// `Bundle.main` (which never crashes, just returns nil) finds it first
+    /// in the packaged .app; `Bundle.module` is only reached for `swift run`.
+    private static func defaultSkinURL() -> URL? {
+        if let url = Bundle.main.url(forResource: "steve", withExtension: "png") {
+            return url
+        }
+        return Bundle.module.url(forResource: "steve", withExtension: "png")
     }
 
     private var currentSkinURL: URL?
@@ -104,7 +136,7 @@ final class AppController: NSObject {
         companion.onSkinFileDropped = { [weak self] url in self?.importAndApply(url: url) }
         if let url = currentSkinURL, let loaded = try? SkinTextureLoader.load(url: url) {
             companion.loadRig(texture: loaded.texture, slim: loaded.isSlim)
-        } else if let url = Bundle.module.url(forResource: "steve", withExtension: "png"),
+        } else if let url = Self.defaultSkinURL(),
                   let loaded = try? SkinTextureLoader.load(url: url) {
             companion.loadRig(texture: loaded.texture, slim: loaded.isSlim)
         }
@@ -197,7 +229,7 @@ final class AppController: NSObject {
         let sourceURL: URL
         if let currentSkinURL {
             sourceURL = currentSkinURL
-        } else if let bundled = Bundle.module.url(forResource: "steve", withExtension: "png") {
+        } else if let bundled = Self.defaultSkinURL() {
             sourceURL = bundled
         } else {
             return

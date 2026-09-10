@@ -25,7 +25,15 @@ bundle: build
 	@bundle_res="$(BUILD_DIR)/$(APP_NAME)_$(APP_NAME).bundle"; \
 	if [ -d "$$bundle_res" ]; then \
 		cp -R "$$bundle_res" "$(APP_DIR)/Contents/Resources/"; \
+	else \
+		echo "warning: SwiftPM resource bundle not found at $$bundle_res"; \
 	fi
+	# Belt-and-suspenders: also copy the default skin as a flat resource, so
+	# the app can find it via Bundle.main even if the SwiftPM-generated
+	# resource bundle above didn't land where expected (Bundle.module's
+	# generated accessor calls fatalError() if it can't find its bundle,
+	# which would silently kill the app at launch with no visible error).
+	cp Sources/BoxBucko/Resources/steve.png "$(APP_DIR)/Contents/Resources/steve.png"
 	$(MAKE) icon
 	$(MAKE) sign
 	@echo "Built $(APP_DIR) -- drag it into /Applications, or just double-click it."
