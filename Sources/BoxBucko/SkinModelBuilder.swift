@@ -142,12 +142,12 @@ enum SkinModelBuilder {
                         tr: SCNVector3(-hw, hh, hd), tl: SCNVector3(-hw, hh, -hd),
                         normal: SCNVector3(-1, 0, 0)),
             // top (+y)
-            FaceCorners(bl: SCNVector3(hw, hh, -hd), br: SCNVector3(-hw, hh, -hd),
-                        tr: SCNVector3(-hw, hh, hd), tl: SCNVector3(hw, hh, hd),
+            FaceCorners(bl: SCNVector3(-hw, hh, hd), br: SCNVector3(hw, hh, hd),
+                        tr: SCNVector3(hw, hh, -hd), tl: SCNVector3(-hw, hh, -hd),
                         normal: SCNVector3(0, 1, 0)),
             // bottom (-y)
-            FaceCorners(bl: SCNVector3(-hw, -hh, -hd), br: SCNVector3(hw, -hh, -hd),
-                        tr: SCNVector3(hw, -hh, hd), tl: SCNVector3(-hw, -hh, hd),
+            FaceCorners(bl: SCNVector3(-hw, -hh, hd), br: SCNVector3(hw, -hh, hd),
+                        tr: SCNVector3(hw, -hh, -hd), tl: SCNVector3(-hw, -hh, -hd),
                         normal: SCNVector3(0, -1, 0)),
         ]
     }
