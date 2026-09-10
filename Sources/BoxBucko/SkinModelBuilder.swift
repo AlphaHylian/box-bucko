@@ -110,12 +110,12 @@ enum SkinModelBuilder {
     private static func material(rect: PixelRect, texture: CGImage, isOverlay: Bool) -> SCNMaterial {
         let m = SCNMaterial()
         m.lightingModel = .lambert
-        m.diffuse.contents = texture
+        m.diffuse.contents = croppedFace(rect, from: texture) ?? texture
         m.diffuse.wrapS = .clamp
         m.diffuse.wrapT = .clamp
         m.diffuse.magnificationFilter = .nearest
         m.diffuse.minificationFilter = .nearest
-        m.diffuse.contentsTransform = uvTransform(for: rect)
+        m.diffuse.contentsTransform = faceTransform()
         m.isDoubleSided = isOverlay
         if isOverlay {
             m.blendMode = .alpha
@@ -126,31 +126,45 @@ enum SkinModelBuilder {
         return m
     }
 
-    /// Maps a pixel rect in the *original* (top-left origin) 64x64 skin image
-    /// onto the [0,1] UV square SceneKit uses for each SCNBox face, accounting
-    /// for the fact that the texture we hand SceneKit was pre-flipped to be
-    /// bottom-up (see `SkinTextureLoader.flipBottomUp`).
-    private static func uvTransform(for rect: PixelRect) -> SCNMatrix4 {
-        let texSize = CGFloat(SkinTextureLoader.textureSize)
-        var sx = CGFloat(rect.w) / texSize
-        let sy = CGFloat(rect.h) / texSize
-        var tx = CGFloat(rect.x) / texSize
-        if Preferences.shared.flipTextureH {
-            // Escape hatch (menu bar toggle) for the horizontal analogue of
-            // flipTextureV below: mirror U within each rect (keep its
-            // position in the texture atlas, reverse its horizontal
-            // sampling direction), in case SceneKit's per-face UV winding
-            // needs it relative to the source PNG for our camera setup.
-            sx = -sx
-            tx = tx + CGFloat(rect.w) / texSize
-        }
-        var ty = 1 - (CGFloat(rect.y) + CGFloat(rect.h)) / texSize
-        if Preferences.shared.flipTextureV {
-            // Escape hatch (menu bar toggle) in case a given macOS/GPU combo
-            // flips SceneKit's texture V axis relative to what we assumed.
-            ty = 1 - ty - sy
-        }
+    /// Crops a single face's own small image out of the full skin texture, so
+    /// each `SCNMaterial` gets a dedicated image mapped onto its whole [0,1]
+    /// UV square rather than a shared texture atlas addressed via a UV
+    /// sub-rect. This sidesteps ever having to know (or guess) how SceneKit's
+    /// default per-face UV winding relates to a shared atlas position --
+    /// whatever that winding is, it's applied identically to every face's own
+    /// dedicated image, so at most one whole-image flip (see `faceTransform`)
+    /// is ever needed, uniformly, instead of a different fix per face.
+    ///
+    /// `CGImage.cropping(to:)` uses CGImage's own coordinate space, which --
+    /// unlike the top-left-origin pixel coordinates `PixelRect`/the Minecraft
+    /// skin spec use everywhere else in this file -- has its origin at the
+    /// BOTTOM-left. Same conversion as `SkinTextureLoader.makeFaceIcon`,
+    /// already verified against a real decoded skin via
+    /// `SkinTextureLoaderTests`.
+    private static func croppedFace(_ rect: PixelRect, from source: CGImage) -> CGImage? {
+        let h = source.height
+        let cgRect = CGRect(
+            x: CGFloat(rect.x), y: CGFloat(h - rect.y - rect.h),
+            width: CGFloat(rect.w), height: CGFloat(rect.h)
+        )
+        return source.cropping(to: cgRect)
+    }
+
+    /// The only remaining orientation unknown once every face has its own
+    /// dedicated, correctly-cropped image: does SceneKit sample a material's
+    /// default [0,1] UV square with the same top-left-origin convention the
+    /// cropped image itself uses, or does it need a flip? Both axes are
+    /// independent, real menu bar toggles (`flipTextureV`/`flipTextureH`) in
+    /// case that guess is wrong on a given macOS/GPU combo -- flipping the
+    /// whole [0,1] square is unambiguous now that there's no atlas position
+    /// to also keep track of.
+    private static func faceTransform() -> SCNMatrix4 {
+        let prefs = Preferences.shared
         // SCNMatrix4's fields are CGFloat (confirmed against the real SDK via CI).
+        let sx: CGFloat = prefs.flipTextureH ? -1 : 1
+        let sy: CGFloat = prefs.flipTextureV ? -1 : 1
+        let tx: CGFloat = prefs.flipTextureH ? 1 : 0
+        let ty: CGFloat = prefs.flipTextureV ? 1 : 0
         return SCNMatrix4(
             m11: sx, m12: 0, m13: 0, m14: 0,
             m21: 0, m22: sy, m23: 0, m24: 0,
