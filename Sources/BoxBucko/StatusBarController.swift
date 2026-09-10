@@ -119,6 +119,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             removeItem.target = app
             submenu.addItem(removeItem)
         }
+        submenu.addItem(.separator())
+        let revealItem = NSMenuItem(title: "Reveal Skins Folder in Finder", action: #selector(AppController.revealSkinsFolderInFinder), keyEquivalent: "")
+        revealItem.target = app
+        submenu.addItem(revealItem)
         item.submenu = submenu
         return item
     }

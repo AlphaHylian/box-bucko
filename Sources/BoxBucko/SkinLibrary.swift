@@ -42,6 +42,10 @@ final class SkinLibrary {
         directory.appendingPathComponent(entry.fileName)
     }
 
+    /// The folder all imported skins live in (`~/Library/Application
+    /// Support/BoxBucko/Skins`), for the "Reveal in Finder" menu action.
+    var skinsDirectory: URL { directory }
+
     @discardableResult
     func importSkin(from sourceURL: URL, name: String? = nil) throws -> SkinEntry {
         let id = UUID().uuidString

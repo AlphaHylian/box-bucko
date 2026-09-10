@@ -223,6 +223,10 @@ final class AppController: NSObject {
         }
     }
 
+    @objc func revealSkinsFolderInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([SkinLibrary.shared.skinsDirectory])
+    }
+
     @objc func renameCurrentSkin() {
         guard let id = prefs.currentSkinID, let entry = SkinLibrary.shared.entry(withID: id) else { return }
         let alert = NSAlert()
