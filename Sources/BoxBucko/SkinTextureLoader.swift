@@ -230,7 +230,7 @@ enum SkinTextureLoader {
     /// handful of pixels that are only ever opaque on the classic 4px arm
     /// template. If every sampled pixel is transparent, we call it slim.
     /// `image` here must be a normalized, top-left-origin 64x64 texture.
-    private static func detectSlimArms(in image: CGImage) -> Bool {
+    static func detectSlimArms(in image: CGImage) -> Bool {
         guard let data = pixelData(of: image, width: 64, height: 64) else { return false }
         func alpha(_ x: Int, _ y: Int) -> UInt8 {
             let i = (y * 64 + x) * 4 + 3
