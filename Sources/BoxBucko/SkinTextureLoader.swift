@@ -90,7 +90,7 @@ enum SkinTextureLoader {
         }
         guard image.width == 64 && image.height == 32 else {
             // Best effort: just scale whatever we got onto a 64x64 canvas.
-            return try resample(image, to: 64, 64)
+            return try resample(image, width: 64, height: 64)
         }
 
         return try mirrorLegacyLimbs(image)
@@ -190,7 +190,7 @@ enum SkinTextureLoader {
         return ctx.makeImage()!
     }
 
-    private static func resample(_ image: CGImage, to width: Int, to height: Int) throws -> CGImage {
+    private static func resample(_ image: CGImage, width: Int, height: Int) throws -> CGImage {
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(
             data: nil, width: width, height: height,

@@ -56,9 +56,7 @@ final class BatteryMonitor {
 
     private static func currentReading() -> Reading? {
         let snapshot = IOPSCopyPowerSourcesInfo().takeRetainedValue()
-        guard let sourcesList = IOPSCopyPowerSourcesList(snapshot).takeRetainedValue() as? [CFTypeRef] else {
-            return nil
-        }
+        let sourcesList = IOPSCopyPowerSourcesList(snapshot).takeRetainedValue() as [CFTypeRef]
         for source in sourcesList {
             guard let description = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue() as? [String: AnyObject] else {
                 continue

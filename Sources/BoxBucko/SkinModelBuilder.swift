@@ -27,9 +27,9 @@ enum SkinModelBuilder {
         let root = SCNNode()
         root.name = "boxBuckoRoot"
 
-        let legTopY: Float = 12
-        let shoulderY: Float = 24
-        let neckY: Float = 24
+        let legTopY: CGFloat = 12
+        let shoulderY: CGFloat = 24
+        let neckY: CGFloat = 24
 
         let body = nodes["body"]!
         body.position = SCNVector3(0, 18, 0) // body spans y 12...24, centered at 18
@@ -41,7 +41,7 @@ enum SkinModelBuilder {
         root.addChildNode(head)
 
         let rightArm = nodes["rightArm"]!
-        let rightArmWidth: Float = slim ? 3 : 4
+        let rightArmWidth: CGFloat = slim ? 3 : 4
         rightArm.pivot = SCNMatrix4MakeTranslation(0, 6, 0) // rotate around shoulder (top of arm box)
         rightArm.position = SCNVector3(-(4 + rightArmWidth / 2), shoulderY, 0)
         root.addChildNode(rightArm)
@@ -131,23 +131,22 @@ enum SkinModelBuilder {
     /// for the fact that the texture we hand SceneKit was pre-flipped to be
     /// bottom-up (see `SkinTextureLoader.flipBottomUp`).
     private static func uvTransform(for rect: PixelRect) -> SCNMatrix4 {
-        let texSize = Double(SkinTextureLoader.textureSize)
-        let sx = Double(rect.w) / texSize
-        let sy = Double(rect.h) / texSize
-        let tx = Double(rect.x) / texSize
-        var ty = 1 - (Double(rect.y) + Double(rect.h)) / texSize
+        let texSize = CGFloat(SkinTextureLoader.textureSize)
+        let sx = CGFloat(rect.w) / texSize
+        let sy = CGFloat(rect.h) / texSize
+        let tx = CGFloat(rect.x) / texSize
+        var ty = 1 - (CGFloat(rect.y) + CGFloat(rect.h)) / texSize
         if Preferences.shared.flipTextureV {
             // Escape hatch (menu bar toggle) in case a given macOS/GPU combo
             // flips SceneKit's texture V axis relative to what we assumed.
             ty = 1 - ty - sy
         }
-        // SCNMatrix4's fields are Float on modern SDKs; convert explicitly
-        // rather than relying on any implicit CGFloat/Float bridging.
+        // SCNMatrix4's fields are CGFloat (confirmed against the real SDK via CI).
         return SCNMatrix4(
-            m11: Float(sx), m12: 0, m13: 0, m14: 0,
-            m21: 0, m22: Float(sy), m23: 0, m24: 0,
+            m11: sx, m12: 0, m13: 0, m14: 0,
+            m21: 0, m22: sy, m23: 0, m24: 0,
             m31: 0, m32: 0, m33: 1, m34: 0,
-            m41: Float(tx), m42: Float(ty), m43: 0, m44: 1
+            m41: tx, m42: ty, m43: 0, m44: 1
         )
     }
 }

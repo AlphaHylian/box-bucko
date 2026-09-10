@@ -85,7 +85,7 @@ final class AnimationController {
         isSleeping = false
         zzzTimer?.invalidate()
         rig.body.removeAction(forKey: "sleepBreathe")
-        let standUp = SCNAction.rotateTo(x: 0, y: CGFloat(rig.root.eulerAngles.y), z: 0, duration: 0.4, usesShortestUnitArc: true)
+        let standUp = SCNAction.rotateTo(x: 0, y: rig.root.eulerAngles.y, z: 0, duration: 0.4, usesShortestUnitArc: true)
         standUp.timingMode = .easeInEaseOut
         rig.root.runAction(standUp) { [weak self] in
             self?.startIdleBreathing()
@@ -221,12 +221,36 @@ final class AnimationController {
     /// A quick squash-and-stretch bounce, used when BoxBucko lands after being
     /// dropped/falling. Purely cosmetic, doesn't touch `isGesturing` so it
     /// can't get stuck blocking other animations if interrupted.
+    ///
+    /// `SCNAction.scaleBy` only scales uniformly on all three axes, so a
+    /// non-uniform squash (wide+flat, then back to normal) needs a manual
+    /// per-frame interpolation via `customAction`.
     func playLandingSquash() {
-        let squash = SCNAction.scaleBy(x: 1.25, y: 0.7, z: 1.25, duration: 0.08)
-        squash.timingMode = .easeOut
-        let recover = SCNAction.scaleBy(x: 1 / 1.25, y: 1 / 0.7, z: 1 / 1.25, duration: 0.18)
-        recover.timingMode = .easeOut
-        rig.root.runAction(.sequence([squash, recover]))
+        let baseScale = rig.root.scale
+        // customAction's closure receives elapsed time in seconds (as a
+        // CGFloat), not a normalized 0...1 fraction -- divide by the action's
+        // own duration to get progress.
+        let squashDuration: CGFloat = 0.08
+        let recoverDuration: CGFloat = 0.18
+        let squash = SCNAction.customAction(duration: TimeInterval(squashDuration)) { node, elapsed in
+            let t = min(1, elapsed / squashDuration)
+            node.scale = SCNVector3(
+                baseScale.x * (1 + 0.25 * t),
+                baseScale.y * (1 - 0.3 * t),
+                baseScale.z * (1 + 0.25 * t)
+            )
+        }
+        let recover = SCNAction.customAction(duration: TimeInterval(recoverDuration)) { node, elapsed in
+            let t = min(1, elapsed / recoverDuration)
+            node.scale = SCNVector3(
+                baseScale.x * (1.25 - 0.25 * t),
+                baseScale.y * (0.7 + 0.3 * t),
+                baseScale.z * (1.25 - 0.25 * t)
+            )
+        }
+        rig.root.runAction(.sequence([squash, recover])) {
+            self.rig.root.scale = baseScale
+        }
     }
 
     func toggleSit() {
@@ -337,7 +361,7 @@ final class AnimationController {
         isWalking = false
         for node in [rig.rightLeg, rig.leftLeg, rig.rightArm, rig.leftArm] {
             node.removeAction(forKey: "walk")
-            node.runAction(.rotateTo(x: 0, y: CGFloat(node.eulerAngles.y), z: 0, duration: 0.2))
+            node.runAction(.rotateTo(x: 0, y: node.eulerAngles.y, z: 0, duration: 0.2))
         }
         rig.body.removeAction(forKey: "walkBob")
         startIdleBreathing()

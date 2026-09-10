@@ -136,7 +136,7 @@ final class PetWindowController: NSObject {
     func loadRig(texture: CGImage, slim: Bool) {
         rig?.root.removeFromParentNode()
         let newRig = SkinModelBuilder.buildRig(texture: texture, slim: slim)
-        let s = Float(prefs.scale) / 10.0
+        let s = prefs.scale / 10.0
         newRig.root.scale = SCNVector3(s, s, s)
         scene.rootNode.addChildNode(newRig.root)
         rig = newRig
@@ -150,7 +150,7 @@ final class PetWindowController: NSObject {
     func applyScale(_ scale: CGFloat) {
         let clamped = min(max(scale, 1.5), 14)
         prefs.scale = clamped
-        let s = Float(clamped) / 10.0
+        let s = clamped / 10.0
         rig?.root.scale = SCNVector3(s, s, s)
     }
 
@@ -214,7 +214,7 @@ final class PetWindowController: NSObject {
         target.x += flingDistance.x
         target.y += flingDistance.y
         target = clamped(target, to: screen)
-        NSAnimationContext.runAnimationContext { ctx in
+        NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.35
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             window.animator().setFrameOrigin(target)
@@ -234,7 +234,7 @@ final class PetWindowController: NSObject {
         }
         let fallDistance = window.frame.origin.y - floorY
         let duration = TimeInterval(min(0.6, max(0.15, Double(fallDistance) / 900.0)))
-        NSAnimationContext.runAnimationContext { ctx in
+        NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = duration
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             window.animator().setFrameOrigin(NSPoint(x: window.frame.origin.x, y: floorY))
@@ -255,7 +255,7 @@ final class PetWindowController: NSObject {
     /// Animates the window sliding to a new x/y over `duration` seconds (used by
     /// the wander behaviour), completing on the main run loop.
     func animateFrameOrigin(x: CGFloat, y: CGFloat, duration: TimeInterval, completion: @escaping () -> Void) {
-        NSAnimationContext.runAnimationContext { ctx in
+        NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = duration
             ctx.timingFunction = CAMediaTimingFunction(name: .linear)
             window.animator().setFrameOrigin(NSPoint(x: x, y: y))

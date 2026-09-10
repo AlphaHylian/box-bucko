@@ -331,8 +331,8 @@ final class AppController: NSObject {
             let maxDistance: CGFloat = 500
             let clampedDx = max(-maxDistance, min(maxDistance, dx))
             let clampedDy = max(-maxDistance, min(maxDistance, dy))
-            let yaw = Float(max(-0.7, min(0.7, clampedDx / 220)))
-            let pitch = Float(max(-0.5, min(0.5, -clampedDy / 260)))
+            let yaw = max(-0.7, min(0.7, clampedDx / 220))
+            let pitch = max(-0.5, min(0.5, -clampedDy / 260))
             rig.head.eulerAngles.y = rig.head.eulerAngles.y * 0.7 + yaw * 0.3
             rig.head.eulerAngles.x = rig.head.eulerAngles.x * 0.7 + pitch * 0.3
         }
