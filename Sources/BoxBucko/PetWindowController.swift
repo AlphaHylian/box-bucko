@@ -66,8 +66,6 @@ final class PetWindowController: NSObject {
         camera.zNear = 0.1
         camera.zFar = 200
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(0, 16, 60)
-        cameraNode.look(at: SCNVector3(0, 16, 0))
         scene.rootNode.addChildNode(cameraNode)
 
         speechLabel = NSTextField(labelWithString: "")
@@ -105,7 +103,26 @@ final class PetWindowController: NSObject {
         petView.onFileDropped = { [weak self] url in self?.onSkinFileDropped?(url) }
 
         setupLighting()
+        updateCameraFraming()
         positionInitialWindow()
+    }
+
+    /// `SkinModelBuilder.buildRig` always builds the character at this fixed
+    /// "design" height (feet at y=0, head top at y=32), then `loadRig`/
+    /// `applyScale` scale the root node by `prefs.scale / 10` to make it look
+    /// bigger or smaller on screen. That scaling shrinks/grows the character
+    /// *around the world origin*, so its vertical center moves with it (e.g.
+    /// at the default scale it sits far below where a scale-1.0 character's
+    /// center would be) -- the camera has to track that center, or it frames
+    /// a fixed point in space that stops corresponding to the character at
+    /// any scale other than 1.0, cropping the legs and off-centering the shot.
+    private static let rigDesignHeight: CGFloat = 32
+
+    private func updateCameraFraming() {
+        let s = prefs.scale / 10.0
+        let centerY = (Self.rigDesignHeight / 2) * s
+        cameraNode.position = SCNVector3(0, centerY, 60)
+        cameraNode.look(at: SCNVector3(0, centerY, 0))
     }
 
     private func setupLighting() {
@@ -147,6 +164,7 @@ final class PetWindowController: NSObject {
         newRig.root.scale = SCNVector3(s, s, s)
         scene.rootNode.addChildNode(newRig.root)
         rig = newRig
+        updateCameraFraming()
         animationController = AnimationController(rig: rig, windowController: self, prefs: prefs)
         animationController.onZzz = { [weak self] in self?.say("z z z...", duration: 2.2) }
         if prefs.wanderEnabled {
@@ -159,6 +177,7 @@ final class PetWindowController: NSObject {
         prefs.scale = clamped
         let s = clamped / 10.0
         rig?.root.scale = SCNVector3(s, s, s)
+        updateCameraFraming()
     }
 
     private func handleScroll(deltaY: CGFloat) {
