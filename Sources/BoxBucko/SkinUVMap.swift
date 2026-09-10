@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 
 /// Pixel-space rectangle within a 64x64 Minecraft skin texture.
-struct PixelRect {
+struct PixelRect: Equatable {
     var x: Int
     var y: Int
     var w: Int

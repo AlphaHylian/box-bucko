@@ -13,6 +13,11 @@ let package = Package(
             resources: [
                 .copy("Resources/steve.png")
             ]
-        )
+        ),
+        .testTarget(
+            name: "BoxBuckoTests",
+            dependencies: ["BoxBucko"],
+            path: "Tests/BoxBuckoTests"
+        ),
     ]
 )
