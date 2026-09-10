@@ -45,12 +45,19 @@ final class PetWindowController: NSObject {
         scene = SCNScene()
         scene.background.contents = NSColor.clear
 
+        // Deliberately using the plain `PetView(frame:)` initializer here --
+        // and PetView deliberately does NOT override any initializer itself.
+        // SCNView's real designated initializer is `init(frame:options:)`;
+        // a subclass overriding only `init(frame:)` corrupts that chain and
+        // crashes instantly at runtime with an EXC_BREAKPOINT trap (learned
+        // the hard way from a real crash report -- see git history).
         petView = PetView(frame: NSRect(origin: .zero, size: size))
         petView.scene = scene
         petView.backgroundColor = .clear
         petView.autoenablesDefaultLighting = false
         petView.antialiasingMode = .multisampling4X
         petView.isJitteringEnabled = true
+        petView.registerForDraggedTypes([.fileURL])
 
         cameraNode = SCNNode()
         let camera = SCNCamera()
