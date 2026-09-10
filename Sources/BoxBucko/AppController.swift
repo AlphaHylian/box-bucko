@@ -83,12 +83,14 @@ final class AppController: NSObject {
     }
 
     private var currentSkinURL: URL?
+    private(set) var currentSkinIsSlim: Bool?
 
     private func applySkin(url: URL) {
         do {
             let loaded = try SkinTextureLoader.load(url: url)
             windowController.loadRig(texture: loaded.texture, slim: loaded.isSlim)
             currentSkinURL = url
+            currentSkinIsSlim = loaded.isSlim
             statusBarController?.updateIcon(with: loaded.faceIcon)
         } catch {
             NSLog("BoxBucko: failed to load skin at \(url): \(error)")

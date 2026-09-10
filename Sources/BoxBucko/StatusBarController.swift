@@ -40,6 +40,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(makeItem("Choose Skin…", #selector(AppController.chooseSkin), app))
         menu.addItem(makeItem("Reset to Default Skin", #selector(AppController.resetSkin), app))
         menu.addItem(skinLibraryMenuItem(app: app))
+        if let isSlim = app.currentSkinIsSlim {
+            let modelInfo = NSMenuItem(title: "Detected Model: \(isSlim ? "Slim (Alex)" : "Classic (Steve)")", action: nil, keyEquivalent: "")
+            modelInfo.isEnabled = false
+            menu.addItem(modelInfo)
+        }
 
         menu.addItem(.separator())
 
