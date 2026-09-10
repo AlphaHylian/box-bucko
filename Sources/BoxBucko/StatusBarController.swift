@@ -68,8 +68,23 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(launchItem)
 
         menu.addItem(.separator())
+        menu.addItem(makeItem("Reset All Preferences", #selector(AppController.resetAllPreferences), app))
+        menu.addItem(.separator())
         menu.addItem(makeItem("About BoxBucko", #selector(AppController.showAbout), app))
         menu.addItem(makeItem("Quit BoxBucko", #selector(AppController.quit), app, keyEquivalent: "q"))
+    }
+
+    /// Swaps the menu bar icon for a little 1:1 render of the current skin's
+    /// face, falling back to the generic cube glyph if none is available.
+    func updateIcon(with faceIcon: NSImage?) {
+        guard let button = statusItem.button else { return }
+        if let faceIcon {
+            button.image = faceIcon
+        } else {
+            let fallback = NSImage(systemSymbolName: "cube.transparent.fill", accessibilityDescription: "BoxBucko")
+            fallback?.isTemplate = true
+            button.image = fallback
+        }
     }
 
     private func skinLibraryMenuItem(app: AppController) -> NSMenuItem {

@@ -66,6 +66,18 @@ final class Preferences {
         set { defaults.set(newValue, forKey: Key.soundEnabled) }
     }
 
+    /// Resets everything except the current skin selection (imported skin
+    /// files themselves live in `SkinLibrary` and are untouched either way).
+    func resetToDefaults() {
+        for key in [
+            Key.scale, Key.wander, Key.followCursor, Key.speechBubbles,
+            Key.spontaneousAnimations, Key.flipTextureV, Key.windowX, Key.windowY,
+            Key.soundEnabled,
+        ] {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     var lastWindowOrigin: CGPoint? {
         get {
             guard defaults.object(forKey: Key.windowX) != nil else { return nil }

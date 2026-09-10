@@ -10,6 +10,9 @@ struct LoadedSkin {
     var texture: CGImage
     var isSlim: Bool
     var sourceURL: URL?
+    /// A tiny cropped/upscaled render of just the face, suitable for use as
+    /// the menu bar status item icon.
+    var faceIcon: NSImage?
 }
 
 enum SkinLoadError: Error {
@@ -40,7 +43,42 @@ enum SkinTextureLoader {
         let normalized = try normalizeTo64x64(raw)
         let flipped = try flipBottomUp(normalized)
         let slim = detectSlimArms(in: normalized)
-        return LoadedSkin(texture: flipped, isSlim: slim, sourceURL: sourceURL)
+        let faceIcon = makeFaceIcon(from: normalized)
+        return LoadedSkin(texture: flipped, isSlim: slim, sourceURL: sourceURL, faceIcon: faceIcon)
+    }
+
+    /// Crops the head's front face (base skin tone + hat-layer overlay) out of
+    /// a normalized, top-left-origin 64x64 skin and renders it as a small,
+    /// crisp (nearest-neighbor upscaled) icon for the menu bar.
+    private static func makeFaceIcon(from normalized: CGImage) -> NSImage? {
+        // CGImage.cropping(to:) uses CGImage's own coordinate space, which --
+        // unlike the top-left-origin pixel coordinates used everywhere else in
+        // this file (and in the Minecraft skin spec) -- has its origin at the
+        // BOTTOM-left. Convert our top-left-origin face rects (front face at
+        // pixel (8,8)-(16,16); hat-layer overlay at (40,8)-(48,16)) accordingly.
+        let h = normalized.height
+        func flippedRect(x: Int, topY: Int, size: Int) -> CGRect {
+            CGRect(x: x, y: h - topY - size, width: size, height: size)
+        }
+        guard let baseFace = normalized.cropping(to: flippedRect(x: 8, topY: 8, size: 8)) else {
+            return nil
+        }
+        let overlayFace = normalized.cropping(to: flippedRect(x: 40, topY: 8, size: 8))
+
+        let size = NSSize(width: 32, height: 32)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .none
+        if let ctx = NSGraphicsContext.current?.cgContext {
+            let rect = CGRect(origin: .zero, size: CGSize(width: 32, height: 32))
+            ctx.draw(baseFace, in: rect)
+            if let overlayFace {
+                ctx.draw(overlayFace, in: rect)
+            }
+        }
+        image.unlockFocus()
+        image.isTemplate = false
+        return image
     }
 
     /// Legacy 64x32 skins only contain the "base" layer and use a mirrored-limb

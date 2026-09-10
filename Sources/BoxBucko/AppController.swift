@@ -89,6 +89,7 @@ final class AppController: NSObject {
             let loaded = try SkinTextureLoader.load(url: url)
             windowController.loadRig(texture: loaded.texture, slim: loaded.isSlim)
             currentSkinURL = url
+            statusBarController?.updateIcon(with: loaded.faceIcon)
         } catch {
             NSLog("BoxBucko: failed to load skin at \(url): \(error)")
         }
@@ -257,6 +258,26 @@ final class AppController: NSObject {
 
     @objc func toggleLaunchAtLogin() {
         LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
+    }
+
+    @objc func resetAllPreferences() {
+        let alert = NSAlert()
+        alert.messageText = "Reset All Preferences?"
+        alert.informativeText = "This resets size, wander, sound, and other settings back to their defaults. Your imported skins are kept."
+        alert.addButton(withTitle: "Reset")
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .warning
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        prefs.resetToDefaults()
+        windowController.applyScale(prefs.scale)
+        for pet in allPets {
+            if prefs.wanderEnabled {
+                pet.animationController?.startWandering()
+            } else {
+                pet.animationController?.stopWandering()
+            }
+        }
     }
 
     @objc func showAbout() {
