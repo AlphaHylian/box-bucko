@@ -13,6 +13,8 @@ final class AppController: NSObject {
     private var cursorFollowTimer: Timer?
     private var idleSpeechTimer: Timer?
     private let batteryMonitor = BatteryMonitor()
+    let pomodoro = PomodoroTimer()
+    let reminders = ReminderScheduler()
 
     /// The primary pet plus any spawned companions -- most behaviour (cursor
     /// follow, idle chatter) applies uniformly across all of them.
@@ -37,6 +39,8 @@ final class AppController: NSObject {
         scheduleIdleSpeech()
         greetForTimeOfDay()
         setUpBatteryCommentary()
+        setUpPomodoro()
+        setUpReminders()
         showWelcomeIfNeeded()
     }
 
@@ -81,6 +85,118 @@ final class AppController: NSObject {
             self?.allPets.randomElement()?.say("full battery, let's go", duration: 2.6)
         }
         batteryMonitor.start()
+    }
+
+    // MARK: - Pomodoro
+
+    private func setUpPomodoro() {
+        pomodoro.onTick = { [weak self] in
+            self?.statusBarController?.updateTimerLabel(self?.pomodoroStatusBarText)
+        }
+        pomodoro.onPhaseChange = { [weak self] phase in
+            guard let self else { return }
+            self.statusBarController?.updateTimerLabel(self.pomodoroStatusBarText)
+            self.statusBarController?.rebuildMenu()
+            switch phase {
+            case .idle:
+                break
+            case .work:
+                SoundEffects.play(.timerDone)
+                self.allPets.randomElement()?.say("back to work! 🍅", duration: 3)
+            case .shortBreak:
+                SoundEffects.play(.timerDone)
+                self.allPets.randomElement()?.say("break time! stretch a bit 🙆", duration: 3.4)
+                self.windowController.animationController?.playJump()
+            case .longBreak:
+                SoundEffects.play(.timerDone)
+                self.allPets.randomElement()?.say("nice work -- long break! 🎉", duration: 3.4)
+                self.windowController.animationController?.playDance()
+            }
+        }
+    }
+
+    private var pomodoroStatusBarText: String? {
+        guard pomodoro.isRunning else { return nil }
+        let label = pomodoro.isPaused ? "⏸" : (pomodoro.phase == .work ? "🍅" : "☕️")
+        return "\(label) \(pomodoro.formattedRemaining)"
+    }
+
+    @objc func startPomodoro() {
+        pomodoro.start()
+    }
+
+    @objc func togglePausePomodoro() {
+        if pomodoro.isPaused {
+            pomodoro.resume()
+        } else {
+            pomodoro.pause()
+        }
+        statusBarController?.updateTimerLabel(pomodoroStatusBarText)
+    }
+
+    @objc func stopPomodoro() {
+        pomodoro.stop()
+        statusBarController?.updateTimerLabel(nil)
+    }
+
+    @objc func skipPomodoroPhase() {
+        pomodoro.skip()
+    }
+
+    @objc func setPomodoroDurations(_ sender: NSMenuItem) {
+        guard let pair = sender.representedObject as? [Int], pair.count == 2 else { return }
+        pomodoro.workMinutes = pair[0]
+        pomodoro.breakMinutes = pair[1]
+    }
+
+    // MARK: - Reminders
+
+    private func setUpReminders() {
+        reminders.onFire = { [weak self] reminder in
+            guard let self else { return }
+            SoundEffects.play(.reminder)
+            NSApp.requestUserAttention(.informationalRequest)
+            self.allPets.randomElement()?.say("⏰ \(reminder.message)", duration: 4.5)
+        }
+        reminders.start()
+    }
+
+    @objc func addReminder() {
+        let alert = NSAlert()
+        alert.messageText = "Remind Me…"
+        alert.informativeText = "What should I remind you about, and in how many minutes?"
+        alert.addButton(withTitle: "Set Reminder")
+        alert.addButton(withTitle: "Cancel")
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 54))
+        let messageField = NSTextField(frame: NSRect(x: 0, y: 28, width: 260, height: 24))
+        messageField.placeholderString = "e.g. stand up and stretch"
+        container.addSubview(messageField)
+
+        let minutesField = NSTextField(frame: NSRect(x: 0, y: 0, width: 60, height: 24))
+        minutesField.stringValue = "10"
+        minutesField.alignment = .right
+        container.addSubview(minutesField)
+
+        let minutesLabel = NSTextField(labelWithString: "minutes from now")
+        minutesLabel.frame = NSRect(x: 68, y: 4, width: 190, height: 17)
+        container.addSubview(minutesLabel)
+
+        alert.accessoryView = container
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.initialFirstResponder = messageField
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let message = messageField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let minutes = max(1, Int(minutesField.stringValue) ?? 10)
+        guard !message.isEmpty else { return }
+        reminders.schedule(message: message, minutesFromNow: minutes)
+        windowController.say("got it, I'll remind you in \(minutes)m", duration: 2.8)
+    }
+
+    @objc func cancelReminder(_ sender: NSMenuItem) {
+        guard let reminder = sender.representedObject as? Reminder else { return }
+        reminders.cancel(reminder)
     }
 
     private func loadInitialSkin() {

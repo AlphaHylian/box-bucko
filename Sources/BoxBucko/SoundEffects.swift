@@ -14,6 +14,8 @@ enum SoundEffects {
         case pickUp
         case drop
         case newSkin
+        case timerDone
+        case reminder
 
         var systemSoundName: NSSound.Name {
             switch self {
@@ -22,6 +24,8 @@ enum SoundEffects {
             case .pickUp: return "Morse"
             case .drop: return "Bottle"
             case .newSkin: return "Glass"
+            case .timerDone: return "Glass"
+            case .reminder: return "Ping"
             }
         }
     }

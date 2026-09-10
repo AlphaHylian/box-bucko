@@ -21,6 +21,8 @@ final class Preferences {
         static let launchAtLogin = "boxbucko.launchAtLogin"
         static let soundEnabled = "boxbucko.soundEnabled"
         static let hasShownWelcome = "boxbucko.hasShownWelcome"
+        static let pomodoroWorkMinutes = "boxbucko.pomodoroWorkMinutes"
+        static let pomodoroBreakMinutes = "boxbucko.pomodoroBreakMinutes"
     }
 
     var scale: CGFloat {
@@ -92,6 +94,22 @@ final class Preferences {
     var hasShownWelcome: Bool {
         get { defaults.bool(forKey: Key.hasShownWelcome) }
         set { defaults.set(newValue, forKey: Key.hasShownWelcome) }
+    }
+
+    var pomodoroWorkMinutes: Int {
+        get {
+            let v = defaults.integer(forKey: Key.pomodoroWorkMinutes)
+            return v == 0 ? 25 : v
+        }
+        set { defaults.set(newValue, forKey: Key.pomodoroWorkMinutes) }
+    }
+
+    var pomodoroBreakMinutes: Int {
+        get {
+            let v = defaults.integer(forKey: Key.pomodoroBreakMinutes)
+            return v == 0 ? 5 : v
+        }
+        set { defaults.set(newValue, forKey: Key.pomodoroBreakMinutes) }
     }
 
     var lastWindowOrigin: CGPoint? {
