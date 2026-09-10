@@ -324,6 +324,15 @@ final class AppController: NSObject {
         }
     }
 
+    @objc func toggleFlipTextureHorizontal() {
+        prefs.flipTextureH.toggle()
+        if let id = prefs.currentSkinID, let entry = SkinLibrary.shared.entry(withID: id) {
+            applySkin(url: SkinLibrary.shared.url(for: entry))
+        } else {
+            loadBundledDefaultSkin()
+        }
+    }
+
     @objc func toggleLaunchAtLogin() {
         LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
     }
